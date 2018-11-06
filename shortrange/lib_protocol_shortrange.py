@@ -199,7 +199,7 @@ class PacketStack:
         if (self._packets[0].isValid()):
             maxSeq = self._packets[0].getFileSize()
             print("self.packetcount=" + str(self._packetCount) + " maxSeq=" + str(maxSeq))
-            if (self._packetCount >= maxSeq):
+            if (self._packetCount > maxSeq):
                 return True    
         return False
 

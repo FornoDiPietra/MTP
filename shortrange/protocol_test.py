@@ -23,15 +23,18 @@ while True:
 
 	#print(str(burst))
 
-	print("transmitting frames...")
+	print("transmitting frames... (Channel magic is happening)")
 	c=0
 	for frame in burst:
 		god = random.random()
 		if (god > 0.5):
+			print( "Successful Tx of: " + str(frame.getPacket().getSeqNum()) )
 			rxFrame = RxFrame(frame.getRawData()[:])
 			rxBurst.addFrame(rxFrame)
 			c+=1
-	print("transmitted " + str(c) + " packets")
+		else:
+			print( "lost Tx of:       " + str(frame.getPacket().getSeqNum()) )
+	#print("transmitted " + str(c) + " packets "
 
 	#raw_input("see rx burst...")
 	#print(str(rxBurst))
