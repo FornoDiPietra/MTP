@@ -7,7 +7,7 @@ import time, sys, argparse
 import spidev
 
 def _BV(x):
-    return 1 << x
+    return 1 << 
 
 def fillWithPadding(byteBlock, blockSize):
     while (len(byteBlock) < blockSize):
