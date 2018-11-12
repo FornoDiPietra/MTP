@@ -1,3 +1,5 @@
+burstSize = 256
+
 class Packet:
 
     def __init__(self):
@@ -134,7 +136,7 @@ class PacketStack:
 
     def readFromFile(self, fileName, blockSize=29):
         firstPacket = self._packets[0]
-        self._packetCount=0
+        self._packetCount=1
         with open(fileName, "rb") as f:
             byteBlock = f.read(blockSize)
 
@@ -157,6 +159,22 @@ class PacketStack:
         firstPacket.setFileSize(loopIndex-1)
         firstPacket.validate()
         
+    def writeToFile(self, fileName):
+        f = open(fileName, "wb")
+        # only write something if we have received at least 2 packets
+        if (self._packetCount > 1):
+            padding = self._packets[0].getPadding() 
+            
+            for i in range(1,self._packetCount):
+                p = self._packets[i]
+                if (p.isValid()):
+                    if (i == self._packetCount-1):
+                        # this is the last packet and we need to care for the padding
+                        f.write(bytearray(p.getPayloadData()[:-padding]))
+                    else:
+                        f.write(bytearray(p.getPayloadData()))
+        f.close()
+
     def createBurst(self):
         burst = TxBurst()
         counter = 0
@@ -170,12 +188,16 @@ class PacketStack:
         return burst
 
     def addBurst(self, burst):
+        c=0
         for frame in burst:
             seqNum = frame.getPacketSeqNum()
             if (not self._packets[seqNum].isValid()):
                 self._packets[seqNum].setRawData( frame.getRawPacketData()[:] )
                 self._packets[seqNum].validate()
                 self._packetCount+=1
+                c+=1
+
+        #print("added " + str(c) + " frames from burst")
 
     def _convertToArray(self, byteBlock):
         arr = []
@@ -190,7 +212,7 @@ class PacketStack:
         return paddingLen
 
     def isAllConfirmed(self):
-        for i in range(0,self._packetCount+1):
+        for i in range(0,self._packetCount):
             if (not self._packets[i].isConfirmed()):
                 return False
         return True
@@ -198,7 +220,7 @@ class PacketStack:
     def isCompletlyReceived(self):
         if (self._packets[0].isValid()):
             maxSeq = self._packets[0].getFileSize()
-            print("self.packetcount=" + str(self._packetCount) + " maxSeq=" + str(maxSeq))
+            #print("self.packetcount=" + str(self._packetCount) + " maxSeq=" + str(maxSeq))
             if (self._packetCount > maxSeq):
                 return True    
         return False
@@ -214,7 +236,7 @@ class PacketStack:
 class TxBurst:
 
     def __init__(self):
-        self._burstSize = 3
+        self._burstSize = burstSize
         self._frameCount = 0
         self._frames = []
 
@@ -262,17 +284,20 @@ class TxBurst:
 class RxBurst(TxBurst):
 
     def __init__(self):
-        self._burstSize = 3
+        self._burstSize = burstSize
         self._frameCount = self._burstSize
         self._frames = []
         self._frameTime = 0.1
         self._timeOut = self._burstSize * self._frameTime
-        self._ack = [0x00] * (int(self._burstSize/8)+1)
+        self._ack = [0x00] * 32
         for i in range(0,self._burstSize):
             self._frames.append(None)
 
+        self._statsNumRcv = 0
+
     def addFrame(self, frame):
         if (frame.getBurstId() < self._burstSize):
+            self._statsNumRcv +=1
             self._frames[frame.getBurstId()] = frame
             self.markACKbit(frame.getBurstId())
             self._timeOut = (self._burstSize - frame.getBurstId()-1)*self._frameTime

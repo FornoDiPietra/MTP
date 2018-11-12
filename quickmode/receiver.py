@@ -4,6 +4,9 @@
 # Example program to receive packets from the radio link
 #
 
+# to do:
+#       check what happens if only one packet is not confirmed!!!!
+
 import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BCM)
 from lib_nrf24 import NRF24
