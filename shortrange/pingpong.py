@@ -80,16 +80,16 @@ for i in range(0,32):
 
 # CE=0/IRQ=25 belongs together
 # CE=1/IRQ=15
-#CE_TX = 0
-#CE_RX = 1
-#IRQ_TX = 25
-#IRQ_RX = 15
+CE_TX = 0
+CE_RX = 1
+IRQ_TX = 25
+IRQ_RX = 15
 
 # Switch Rx/Tx
-CE_TX = 1
-CE_RX = 0
-IRQ_TX = 15
-IRQ_RX = 25
+#CE_TX = 1
+#CE_RX = 0
+#IRQ_TX = 15
+#IRQ_RX = 25
 
 
 radioRx = setupRadio(CE_RX)
@@ -129,17 +129,17 @@ try:
 
         transmit(radioTx, IRQ_TX, testPacket)
 
-        #print("transmitted a packet")
+        print("transmitted a packet")
         if (count % 100 == 0):
             print(str(count) + "/" + str(fails))
 
         data = receive(radioRx, IRQ_RX, 0.1)
 
         if (data != None):
-            #print(data)
+            print(data)
             pass
         else:
-            #print("timeout")
+            print("timeout")
             fails+=1
 
         #raw_input("press a button")
@@ -150,4 +150,4 @@ finally:
     GPIO.cleanup()
     print("time elapsed: " + str(time.time()-timer1))
     print("transmitted: " + str(count))
-    print("fails: " + str(fails))
+    print("timeouts: " + str(fails))
