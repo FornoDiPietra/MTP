@@ -55,45 +55,63 @@ def receive(radio, IRQ, timeout):
         return None
 
 
+if (len(sys.argv) < 4):
+    print("pingping.py <addressing:self|r1|r2> <config:cfg1|cfg2> <textout|notextout>")
+    sys.exit()
+
+addressing = sys.argv[1]
+config = sys.argv[2]
+
+if (sys.argv[3] == "textout"):
+    textout = True
+else:
+    textout = False
+
+if (addressing == "self"):
+    # Self test configuration
+    ADDR_TX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
+    ADDR_RX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
+    testPacket = []
+    for i in range(0,32):
+        testPacket.append(i)
+elif (addressing == "r1"):
+    # Normal configuration Raspi 2
+    ADDR_TX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
+    ADDR_RX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
+    testPacket = []
+    for i in range(0,32):
+        testPacket.append(i)
+else:
+    # Normal configuration Raspi 3
+    ADDR_TX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
+    ADDR_RX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
+    testPacket = []
+    for i in range(0,32):
+        testPacket.append(32-i)
 
 
-# Self test configuration
-ADDR_TX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
-ADDR_RX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
-testPacket = []
-for i in range(0,32):
-    testPacket.append(i)
+print("TX addr: " + str(ADDR_TX))
+print("RX addr: " + str(ADDR_RX))
 
-# Normal configuration Raspi 2
-#ADDR_TX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
-#ADDR_RX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
-#testPacket = []
-#for i in range(0,32):
-#    testPacket.append(i)
+if (config == "cfg1"):
+    # CE=0/IRQ=25 belongs together
+    # CE=1/IRQ=15
+    CE_TX = 0
+    CE_RX = 1
+    IRQ_TX = 25
+    IRQ_RX = 15
 
-# Normal configuration Raspi 3
-#ADDR_TX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
-#ADDR_RX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
-#testPacket = []
-#for i in range(0,32):
-#    testPacket.append(32-i)
-
-# CE=0/IRQ=25 belongs together
-# CE=1/IRQ=15
-CE_TX = 0
-CE_RX = 1
-IRQ_TX = 25
-IRQ_RX = 15
-
-# Switch Rx/Tx
-#CE_TX = 1
-#CE_RX = 0
-#IRQ_TX = 15
-#IRQ_RX = 25
+else:
+    # Switch Rx/Tx
+    CE_TX = 1
+    CE_RX = 0
+    IRQ_TX = 15
+    IRQ_RX = 25
 
 
 radioRx = setupRadio(CE_RX)
 radioRx.openReadingPipe(1, ADDR_RX)
+radioRx.openReadingPipe(0, ADDR_RX)
 radioRx.startListening()
 
 
@@ -108,8 +126,16 @@ radioTx.openWritingPipe(ADDR_TX)
 GPIO.setup(IRQ_TX, GPIO.IN)
 GPIO.setup(IRQ_RX, GPIO.IN)
 
+print("CE_TX=" + str(CE_TX))
+print("CE_RX=" + str(CE_RX))
+print("IRQ_TX=" + str(IRQ_TX))
+print("IRQ_RX=" + str(IRQ_RX))
 
 print(sys.version)
+print("----Tx---------")
+radioTx.printDetails()
+print("----Rx---------")
+radioRx.printDetails()
 
 raw_input("press button to start test")
 
@@ -117,6 +143,7 @@ raw_input("press button to start test")
 # run this to swtich the radio on and into tx mode
 radioTx.write_register(NRF24.CONFIG, (radioTx.read_register(NRF24.CONFIG) | _BV(NRF24.PWR_UP) ) & ~_BV(NRF24.PRIM_RX))
 radioTx.flush_rx()
+radioRx.flush_rx()
 
 maxTries = 50000
 count = 0
@@ -129,17 +156,20 @@ try:
 
         transmit(radioTx, IRQ_TX, testPacket)
 
-        print("transmitted a packet")
+        if (textout):
+            print("transmitted a packet")
+
         if (count % 100 == 0):
             print(str(count) + "/" + str(fails))
 
         data = receive(radioRx, IRQ_RX, 0.1)
 
         if (data != None):
-            print(data)
-            pass
+            if (textout):
+                print(data)
         else:
-            print("timeout")
+            if (textout):
+                print("timeout")
             fails+=1
 
         #raw_input("press a button")
