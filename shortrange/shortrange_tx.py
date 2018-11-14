@@ -74,7 +74,7 @@ def transmitPacket(radio,irqPin, data):
 if (len(sys.argv) < 2):
     print("specify tx file name")
     sys.exit()
-TX_FILE_NAME = argv[1]
+TX_FILE_NAME = sys.argv[1]
 
 IRQ_TX = 15
 IRQ_RX = 25
@@ -125,7 +125,7 @@ try:
     while (not stack.isAllConfirmed() ):
 
         if (info_burstNum % 20 == 0):
-            print(str(stack._packetCount) + "/" + )
+            print(str(stack._packetCount) + "/" + str(info_ackLost))
 
         burst = stack.createBurst()
         radioRx.flush_rx()
