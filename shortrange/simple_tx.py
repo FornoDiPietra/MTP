@@ -5,7 +5,6 @@ GPIO.setmode(GPIO.BCM)
 from lib_nrf24 import NRF24
 import time, sys, argparse
 import spidev
-from lib_protocol_shortrange import *
 
 def _BV(x):
     return 1
@@ -57,17 +56,25 @@ def receive(radio, IRQ, timeout):
 
 
 if (len(sys.argv) < 2):
-    print("shortrange_tx.py <file> <config: cfg1|cfg2>")
+    print("pingping.py <filename> <config:cfg1|cfg2> <textout|notextout>")
     sys.exit()
 
 FILE_NAME = sys.argv[1]
-config = "cfg1"
-if (len(sys.argv)> 2):
+if (len(sys.argv) > 2):
     config = sys.argv[2]
+else:
+    config = "cfg1"
+
+textout = True
+
 
 # Normal configuration Raspi 2
 ADDR_TX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
 ADDR_RX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
+testPacket = []
+for i in range(0,32):
+    testPacket.append(i)
+
 
 
 print("TX addr: " + str(ADDR_TX))
@@ -117,11 +124,6 @@ radioTx.printDetails()
 print("----Rx---------")
 radioRx.printDetails()
 
-
-print("init the packet stack")
-stack = PacketStack()
-stack.readFromFile(FILE_NAME)
-
 raw_input("press button to start test")
 
 
@@ -134,32 +136,50 @@ maxTries = 50000
 count = 0
 fails = 0
 
+file = open(FILE_NAME, 'rb')
+end=False
 
-textout = True
-
+timer1 = time.time()
 try:
-    while (count <= maxTries):
+    while (not end):
         count += 1
 
-        burst = stack.createBurst()
+        #print("new packet")
 
-        for frame in burst:
-            transmit(radioTx, IRQ_TX, frame.getRawData())
+        if (count % 20 == 0):
+            print(str(count) + "/" + str(time.time()-timer1))
 
-        if (textout):
-            print("transmitted a burst " + str(count))
+        header = [0]
+        data = file.read(31)
+        dataTx = []
 
-        #now wait for the ACK
-        data = receive(radioRx, IRQ_RX, 2)
+        for d in data:
+            dataTx.append(ord(d))
 
-        if (data != None):
-            if (textout):
-                print(data)
-                burst.ACK(data)
-        else:
-            if (textout):
-                print("ACK timeout")
-            fails+=1
+        if (len(dataTx) != 31):
+            #last transmission
+            #add padding and fix header
+            end=True
+            headerData = 31-len(data)
+            header = [headerData]
+            while (len(dataTx) < 31):
+                dataTx.append(0x00)
+
+        #retransmit until we have an ACK
+        while True:
+
+            #print(dataTx)
+            transmit(radioTx, IRQ_TX, header + dataTx)
+
+            data = receive(radioRx, IRQ_RX, 0.1)
+
+            if (data != None):
+                #print("got ACK")
+                break
+            else:
+                if (textout):
+                    print("timeout")
+                fails+=1
 
         #raw_input("press a button")
 
