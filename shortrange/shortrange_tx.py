@@ -27,10 +27,12 @@ def configureRadio(ce):
     return radio
 
 def listenOnAddress(radio, addr):
-    radio.openReadingPipe(0, addr)
+    radio.openReadingPipe(1, addr)
     radio.startListening()
 
 def transmitOnAddress(radio, addr):
+    radio.startListening()
+    radio.stopListening()
     radio.openWritingPipe(addr)
     radio.write_register(NRF24.CONFIG, (radio.read_register(NRF24.CONFIG) | _BV(NRF24.PWR_UP) ) & ~_BV(NRF24.PRIM_RX))
 
@@ -51,7 +53,7 @@ def waitForPacket(radio,irqPin,timeOut):
         return payload[1:]
     else:
         #timeout
-        print("timeout iasdfaskdfjasldfjasl")
+        print("timeout")
         return None
 
 
@@ -68,6 +70,11 @@ def transmitPacket(radio,irqPin, data):
 
 
 # MAIN
+
+if (len(sys.argv) < 2):
+    print("specify tx file name")
+    sys.exit()
+TX_FILE_NAME = argv[1]
 
 IRQ_TX = 15
 IRQ_RX = 25
@@ -98,7 +105,7 @@ transmitOnAddress(radioTx, ADDR_TX)
 
 print("init packet stack")
 stack = PacketStack()
-stack.readFromFile("data.txt")
+stack.readFromFile(TX_FILE_NAME)
 
 print("packets in stack: " + str(stack._packetCount))
 
@@ -114,45 +121,47 @@ totalTimeWaitingForNextBurst = 0
 
 print("start transmission")
 
-while (not stack.isAllConfirmed() ):
+try:
+    while (not stack.isAllConfirmed() ):
 
-    if (info_burstNum % 20 == 0):
-        print(str(stack._packetCount) + "/" + )
+        if (info_burstNum % 20 == 0):
+            print(str(stack._packetCount) + "/" + )
 
-    burst = stack.createBurst()
-    radioRx.flush_rx()
+        burst = stack.createBurst()
+        radioRx.flush_rx()
 
-    totalTimeWaitingForNextBurst+=time.time()-timer3
-    timer2=time.time()
+        totalTimeWaitingForNextBurst+=time.time()-timer3
+        timer2=time.time()
 
-    for frame in burst:
-        transmitPacket(radioTx,IRQ_TX,frame.getRawData())
+        for frame in burst:
+            transmitPacket(radioTx,IRQ_TX,frame.getRawData())
 
-    timeBurst=time.time()-timer2
-    totalTimeBurst+=timeBurst
+        timeBurst=time.time()-timer2
+        totalTimeBurst+=timeBurst
 
-    info_burstNum += 1
+        info_burstNum += 1
 
+        radioTx.flush_tx()
+        radioRx.flush_rx()
 
-    radioTx.flush_tx()
-    radioRx.flush_rx()
+        timer3 = time.time()
+        
+        rxData = waitForPacket(radioRx,IRQ_RX,0.5)
 
-    timer3 = time.time()
-    
-    rxData = waitForPacket(radioRx,IRQ_RX,0.5)
+        totalTimeAckWaiting+=time.time()-timer3
+        timer4=0
 
-    totalTimeAckWaiting+=time.time()-timer3
-    timer4=0
-
-    if (rxData != None):
-        burst.ACK(rxData)
-    else:
-        info_ackLost += 1
-
-print("transmission done")
-print("number of bursts: " + str(info_burstNum))
-print("number of lost ACKS: " + str(info_ackLost))
-print("time elapsed: " + str(time.time()-timer1))
-print("average time per burst: " + str(totalTimeBurst/info_burstNum))
-print("average time to wait for ACK: " + str(totalTimeAckWaiting/info_burstNum))
-print("average time to create next burst: " + str(totalTimeWaitingForNextBurst/info_burstNum))
+        if (rxData != None):
+            burst.ACK(rxData)
+        else:
+            info_ackLost += 1
+except KeyboardInterrupt:
+    print("")
+finally:
+    print("transmission done")
+    print("number of bursts: " + str(info_burstNum))
+    print("number of lost ACKS: " + str(info_ackLost))
+    print("time elapsed: " + str(time.time()-timer1))
+    print("average time per burst: " + str(totalTimeBurst/info_burstNum))
+    print("average time to wait for ACK: " + str(totalTimeAckWaiting/info_burstNum))
+    print("average time to create next burst: " + str(totalTimeWaitingForNextBurst/info_burstNum))

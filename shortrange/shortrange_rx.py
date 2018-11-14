@@ -27,12 +27,12 @@ def configureRadio(ce):
     return radio
 
 def listenOnAddress(radio, addr):
-    print("listen on: " + str(addr))
-    radio.openReadingPipe(0, addr)
+    radio.openReadingPipe(1, addr)
     radio.startListening()
 
 def transmitOnAddress(radio, addr):
-    print("transmitting on " + str(addr))
+    radio.startListening()
+    radio.stopListening()
     radio.openWritingPipe(addr)
     radio.write_register(NRF24.CONFIG, (radio.read_register(NRF24.CONFIG) | _BV(NRF24.PWR_UP) ) & ~_BV(NRF24.PRIM_RX))
 
@@ -67,6 +67,11 @@ def transmitPacket(radio,irqPin, data):
     radio.write_register(NRF24.STATUS, 0x70)
 
 # MAIN
+
+if (len(sys.argv) < 2):
+    print("specify output file name")
+    sys.exit()
+RCV_FILE_NAME = sys.argv[1]
 
 IRQ_TX = 25
 IRQ_RX = 15
@@ -138,4 +143,4 @@ while True:
 
     if (stack.isCompletlyReceived()):
         print("file completly received")
-        stack.writeToFile("rec_data.txt")
+        stack.writeToFile(RCV_FILE_NAME)
