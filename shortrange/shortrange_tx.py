@@ -5,6 +5,7 @@ GPIO.setmode(GPIO.BCM)
 from lib_nrf24 import NRF24
 import time, sys, argparse
 import spidev
+from lib_protocol_shortrange import *
 
 def _BV(x):
     return 1
@@ -55,39 +56,18 @@ def receive(radio, IRQ, timeout):
         return None
 
 
-if (len(sys.argv) < 4):
-    print("pingping.py <addressing:self|r1|r2> <config:cfg1|cfg2> <textout|notextout>")
+if (len(sys.argv) < 2):
+    print("shortrange_tx.py <file> <config: cfg1|cfg2>")
     sys.exit()
 
-addressing = sys.argv[1]
-config = sys.argv[2]
+FILE_NAME = sys.argv[1]
+config = "cfg1"
+if (len(sys.argv)> 2):
+    config = sys.argv[2]
 
-if (sys.argv[3] == "textout"):
-    textout = True
-else:
-    textout = False
-
-if (addressing == "self"):
-    # Self test configuration
-    ADDR_TX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
-    ADDR_RX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
-    testPacket = []
-    for i in range(0,32):
-        testPacket.append(i)
-elif (addressing == "r1"):
-    # Normal configuration Raspi 2
-    ADDR_TX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
-    ADDR_RX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
-    testPacket = []
-    for i in range(0,32):
-        testPacket.append(i)
-else:
-    # Normal configuration Raspi 3
-    ADDR_TX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
-    ADDR_RX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
-    testPacket = []
-    for i in range(0,32):
-        testPacket.append(32-i)
+# Normal configuration Raspi 2
+ADDR_TX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
+ADDR_RX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
 
 
 print("TX addr: " + str(ADDR_TX))
@@ -137,6 +117,11 @@ radioTx.printDetails()
 print("----Rx---------")
 radioRx.printDetails()
 
+
+print("init the packet stack")
+stack = PacketStack()
+stack.readFromFile(FILE_NAME)
+
 raw_input("press button to start test")
 
 
@@ -149,20 +134,22 @@ maxTries = 50000
 count = 0
 fails = 0
 
-timer1 = time.time()
+
+textout = True
+
 try:
     while (count <= maxTries):
         count += 1
 
-        transmit(radioTx, IRQ_TX, testPacket)
+        burst = stack.createBurst()
+
+        for frame in burst:
+            transmit(radioTx, IRQ_TX, frame.getRawData())
 
         if (textout):
-            print("transmitted a packet")
+            print("transmitted a burst")
 
-        if (count % 100 == 0):
-            print(str(count) + "/" + str(fails))
-
-        data = receive(radioRx, IRQ_RX, 0.1)
+        data = receive(radioRx, IRQ_RX, 0.5)
 
         if (data != None):
             if (textout):
