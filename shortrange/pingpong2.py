@@ -11,10 +11,10 @@ def _BV(x):
 
 def setupRadio(CE):
     CHANNEL = 0x60
-    POWER = NRF24.PA_MAX
+    #POWER = NRF24.PA_MAX
     #POWER = NRF24.PA_HIGH
     #POWER = NRF24.PA_LOW
-    #POWER = NRF24.PA_MIN
+    POWER = NRF24.PA_MIN
     DATARATE = NRF24.BR_2MBPS
 
     radio = NRF24(GPIO, spidev.SpiDev())
@@ -137,6 +137,16 @@ radioTx.printDetails()
 print("----Rx---------")
 radioRx.printDetails()
 
+print("\n\ntesting the IRQs")
+print("IRQ_TX: " + str(GPIO.input(IRQ_TX)))
+print("IRQ_RX: " + str(GPIO.input(IRQ_RX)))
+print("reseting both  interrupts")
+radioRx.write_register(NRF24.STATUS, 0x70)
+radioTx.write_register(NRF24.STATUS, 0x70)
+print("IRQ_TX: " + str(GPIO.input(IRQ_TX)))
+print("IRQ_RX: " + str(GPIO.input(IRQ_RX)))
+
+
 raw_input("press button to start test")
 
 
@@ -154,6 +164,9 @@ try:
     while (count <= maxTries):
         count += 1
 
+        if (GPIO.input(IRQ_TX) == 0):
+            print("CAUTION: IRQ_TX seems not to be reseted properly")
+
         transmit(radioTx, IRQ_TX, testPacket)
 
         if (textout):
@@ -161,6 +174,9 @@ try:
 
         if (count % 100 == 0):
             print(str(count) + "/" + str(fails))
+
+        if (GPIO.input(IRQ_RX) == 0):
+            print("CAUTION: IRQ_RX seems not to be reseted properly")
 
         data = receive(radioRx, IRQ_RX, 0.1)
 
