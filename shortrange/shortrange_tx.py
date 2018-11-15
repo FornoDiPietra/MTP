@@ -137,6 +137,8 @@ fails = 0
 timer1 = time.time()
 textout = True
 
+debug_time = False
+
 try:
     while (not stack.isAllConfirmed()):
         count += 1
@@ -146,13 +148,15 @@ try:
 
         burst = stack.createBurst()
 
-        print("    " + str(time.time()-timer3) + "s for processing a new burst")
+        if (debug_time):
+        	print("    " + str(time.time()-timer3) + "s for processing a new burst")
         timer3 = time.time()
 
         for frame in burst:
             transmit(radioTx, IRQ_TX, frame.getRawData())
 
-        print("    " + str(time.time()-timer3) + "s for burst transmission")
+       	if (debug_time):
+        	print("    " + str(time.time()-timer3) + "s for burst transmission")
         timer3 = time.time()
 
         radioRx.flush_rx()
@@ -160,18 +164,21 @@ try:
         #now wait for the ACK
         data = receive(radioRx, IRQ_RX, 0.1)
 
-        print("    " + str(time.time() - timer3) + "s waiting for the ACK")
+        if (debug_time):
+        	print("    " + str(time.time() - timer3) + "s waiting for the ACK")
         timer3 = time.time()
 
+        ack_message = ""
         if (data != None):
             burst.ACK(data,stack)
         else:
-            print("ACK timeout")
+            ack_message = " (ACK timeout)"
             fails+=1
 
-        print("    " + str(time.time()-timer3) + "s for processing the ACK")
+        if (debug_time):
+        	print("    " + str(time.time()-timer3) + "s for processing the ACK")
 
-        print("burst transmitted in " + str(time.time()-timer2) + "s; " + str(stack._packetCount) + " packets left")
+        print("burst transmitted in " + str(time.time()-timer2) + "s; " + str(stack._packetCount) + " packets left" + ack_message)
 
 
 except KeyboardInterrupt:
