@@ -162,7 +162,7 @@ try:
         radioRx.flush_rx()
 
         #now wait for the ACK
-        data = receive(radioRx, IRQ_RX, 0.1)
+        data = receive(radioRx, IRQ_RX, 0.4)
 
         if (debug_time):
         	print("    " + str(time.time() - timer3) + "s waiting for the ACK")
