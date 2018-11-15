@@ -78,15 +78,15 @@ if (config == "cfg1"):
     # CE=1/IRQ=15
     CE_TX = 0
     CE_RX = 1
-    IRQ_TX = 25
-    IRQ_RX = 15
+    IRQ_TX = 16
+    IRQ_RX = 20
 
 else:
     # Switch Rx/Tx
     CE_TX = 1
     CE_RX = 0
-    IRQ_TX = 15
-    IRQ_RX = 25
+    IRQ_TX = 20
+    IRQ_RX = 16
 
 
 radioRx = setupRadio(CE_RX)

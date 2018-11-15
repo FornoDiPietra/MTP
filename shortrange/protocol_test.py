@@ -10,7 +10,9 @@ import os
 stack = PacketStack()
 rxStack = PacketStack()
 
-os.system("gzip < data.txt > data.txt.gz")
+FILE_NAME = "../testfiles/test_pat_001.txt"
+
+os.system('gzip < "'+FILE_NAME+'" > data.txt.gz')
 stack.readFromFile("data.txt.gz")
 
 #stack._packets[1].confirm()
@@ -36,24 +38,24 @@ while True:
 	burstCounter+=1
 	for frame in burst:
 		god = random.random()
-		if (god > 0.75):
-			print( "Successful Tx of: " + str(frame.getPacket().getSeqNum()) )
+		if (god > 0.2):
+			#print( "Successful Tx of: " + str(frame.getPacket().getSeqNum()) )
 			rxFrame = RxFrame(frame.getRawData()[:])
 			rxBurst.addFrame(rxFrame)
 			c+=1
 		else:
 			lostCounter+=1
-			print( "lost Tx of:       " + str(frame.getPacket().getSeqNum()) )
-	#print("transmitted " + str(c) + " packets "
+			#print( "lost Tx of:       " + str(frame.getPacket().getSeqNum()) )
+	print("transmitted " + str(c) + " packets ")
 
 	#raw_input("see rx burst...")
 	#print(str(rxBurst))
 
 	print("transmitting ACK")
 	god = random.random()
-	if (god > 0.05):
+	if (god > 0.2):
 		ack = rxBurst.getACK()
-		burst.ACK(ack)
+		burst.ACK(ack, stack)
 		print("ACK received")
 	else:
 		print("ACK timeout in Tx")
@@ -77,34 +79,3 @@ print("lost: " + str(lostCounter) + " data packets")
 print("lost: " + str(ackLostCounter) + " ACKs") 
 rxStack.writeToFile("received.txt.gz")
 os.system("gunzip < received.txt.gz > received.txt")
-
-## wait for the burst
-#startTime = time.time()
-#txAckWaitTimeOut = 1
-#
-##while (not dataAvailable() and (time.time()-startTime)<txAckWaitTimeOut):
-##    time.sleep(0.000000001)
-#
-##if (dataAvailable()):
-##    burst.ACK(ack)
-#
-#
-#while (not stack.isAllConfirmed()):
-#    burst = stack.createNextBurst()
-#
-#    #transmit the burst
-#
-#    #wait for the acknowledgement
-#
-#    ack = [0x00] * 32
-#    ack[0] = 0b00000001
-#
-#    #mark the acknowledged packets
-#    burst.ACK(ack)
-#
-#    for i in burst:
-#        print(i)
-#
-#
-##     print("-"*131)
-#
