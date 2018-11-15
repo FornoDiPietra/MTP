@@ -134,34 +134,45 @@ maxTries = 50000
 count = 0
 fails = 0
 
-
+timer1 = time.time()
 textout = True
 
 try:
-    while (count <= maxTries):
+    while (not stack.isAllConfirmed()):
         count += 1
 
+        timer2 = time.time()
+        timer3 = time.time()
+
         burst = stack.createBurst()
+
+        print("    " + str(time.time()-timer3) + "s for processing a new burst")
+        timer3 = time.time()
 
         for frame in burst:
             transmit(radioTx, IRQ_TX, frame.getRawData())
 
-        if (textout):
-            print("transmitted a burst " + str(count))
+        print("    " + str(time.time()-timer3) + "s for burst transmission")
+        timer3 = time.time()
+
+        radioRx.flush_rx()
 
         #now wait for the ACK
         data = receive(radioRx, IRQ_RX, 2)
 
+        print("    " + str(time.time() - timer3) + "s waiting for the ACK")
+        timer3 = time.time()
+
         if (data != None):
-            if (textout):
-                print(data)
-                burst.ACK(data)
+            burst.ACK(data,stack)
         else:
-            if (textout):
-                print("ACK timeout")
+            print("ACK timeout")
             fails+=1
 
-        #raw_input("press a button")
+        print("    " + str(time.time()-timer3) + "s for processing the ACK")
+
+        print("burst transmitted in " + str(time.time()-timer2) + "s; " + str(stack._packetCount) + " packets left")
+
 
 except KeyboardInterrupt:
     print("")

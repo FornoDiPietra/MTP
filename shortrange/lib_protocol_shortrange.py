@@ -133,6 +133,7 @@ class PacketStack:
         for i in range(0,0xFFFF+1):
             self._packets.append(Packet())
         self._packetCount = 0
+        self._unconfirmedIndexes = range(0,0xFFFF)
 
     def readFromFile(self, fileName, blockSize=29):
         firstPacket = self._packets[0]
@@ -179,12 +180,14 @@ class PacketStack:
         burst = TxBurst()
         counter = 0
         i = 0
+        j = 0
         while (not burst.isFull()):
-            if (not self._packets[i].isConfirmed()):
-                burst.addPacket( self._packets[i] )
-            i+=1
-            if (i > self._packetCount):
-                i=0
+            for packet in self._packets:
+                j+=1
+                if not packet.isConfirmed():
+                    burst.addPacket(packet)
+                    if (burst.isFull()):
+                        break
         return burst
 
     def addBurst(self, burst):
@@ -253,12 +256,14 @@ class TxBurst:
         else:
             return False
 
-    def ACK(self, ackData):
+    def ACK(self, ackData, stack):
         j=0
         for b in ackData:
             for i in range(0,8):
                 if ( (b & 0x01<<i) != 0 and j<self._burstSize):
                     self._frames[j].getPacket().confirm()
+                    stack._packets.remove(self._frames[j].getPacket())
+                    stack._packetCount -= 1
                 j+=1 
 
     def __str__(self):

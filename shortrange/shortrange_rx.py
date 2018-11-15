@@ -3,144 +3,177 @@
 import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BCM)
 from lib_nrf24 import NRF24
-import time
+import time, sys, argparse
 import spidev
-import signal
-import time
-import sys
-
 from lib_protocol_shortrange import *
 
 def _BV(x):
-    return 1 << x
+    return 1
 
-def configureRadio(ce):
+def setupRadio(CE):
+    CHANNEL = 0x60
+    POWER = NRF24.PA_MAX
+    #POWER = NRF24.PA_HIGH
+    #POWER = NRF24.PA_LOW
+    #POWER = NRF24.PA_MIN
+    DATARATE = NRF24.BR_2MBPS
+
     radio = NRF24(GPIO, spidev.SpiDev())
-    radio.begin(ce, 0) # Chip select 0
+    radio.begin(CE, 0)
     radio.setRetries(15,0)
     radio.setPayloadSize(32)
-    radio.setChannel(0x60)
-    radio.setDataRate(NRF24.BR_2MBPS)
-    radio.setPALevel(NRF24.PA_LOW)
+    radio.setChannel(CHANNEL)
+    radio.setDataRate(DATARATE)
+    radio.setPALevel(POWER)
     radio.setAutoAck(False)
+    radio.write_register(NRF24.STATUS, 0x70)
 
     return radio
 
-def listenOnAddress(radio, addr):
-    radio.openReadingPipe(1, addr)
-    radio.startListening()
+def transmit(radio, IRQ, data):
+    txbuffer = [NRF24.W_TX_PAYLOAD] + data
+    result =  radio.spidev.xfer2(txbuffer)
 
-def transmitOnAddress(radio, addr):
-    radio.startListening()
-    radio.stopListening()
-    radio.openWritingPipe(addr)
-    radio.write_register(NRF24.CONFIG, (radio.read_register(NRF24.CONFIG) | _BV(NRF24.PWR_UP) ) & ~_BV(NRF24.PRIM_RX))
-
-def waitForPacket(radio,irqPin,timeOut):
-    #wait for the Rx to get the interrupt
-    startTime = time.time()
-    while (GPIO.input(irqPin) == 1 and (time.time()-startTime < timeOut)):
+    #wait for successful sended
+    while (GPIO.input(IRQ) == 1):
         time.sleep(0.0000001)
+    radio.write_register(NRF24.STATUS, 0x70)
 
-    if (GPIO.input(irqPin) == 0):
-        #clear the interrupt
+def receive(radio, IRQ, timeout):
+    startTime = time.time()
+
+    while (GPIO.input(IRQ) == 1 and (time.time()-startTime<timeout)):
+        time.sleep(0.000001)
+
+    if (GPIO.input(IRQ) == 0):
         radio.write_register(NRF24.STATUS, 0x70)
 
-        # read the data
         txbuffer = [NRF24.R_RX_PAYLOAD] + ([0xFF]*32)
         payload = radio.spidev.xfer2(txbuffer)
 
         return payload[1:]
     else:
-        #timeout
         return None
 
-def transmitPacket(radio,irqPin, data):
-    #create and send a test packet
-    txbuffer = [NRF24.W_TX_PAYLOAD] + data
-    result =  radio.spidev.xfer2(txbuffer)
-
-    #wait for successful sended
-    while (GPIO.input(irqPin) == 1):
-        time.sleep(0.0000001)
-    #clear the IRQ
-    radio.write_register(NRF24.STATUS, 0x70)
-
-# MAIN
 
 if (len(sys.argv) < 2):
-    print("specify output file name")
+    print("shortrange_tx.py <file> <config: cfg1|cfg2>")
     sys.exit()
-RCV_FILE_NAME = sys.argv[1]
 
-IRQ_TX = 25
-IRQ_RX = 15
-CE_TX = 0
-CE_RX = 1
+FILE_NAME = sys.argv[1]
+config = "cfg1"
+if (len(sys.argv)> 2):
+    config = sys.argv[2]
 
-GPIO.setup(IRQ_TX, GPIO.IN) #Tx IRQ
-GPIO.setup(IRQ_RX, GPIO.IN) #Rx IRQ
-
-#config selftest
-#ADDR_TX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
-#ADDR_RX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
-
-#config raspi 3
-#ADDR_TX = [0xE7, 0xE7, 0xE7, 0xE7, 0xE7]
-#ADDR_RX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
-
-#config raspi 2
+# Normal configuration Raspi 2
 ADDR_TX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
-ADDR_RX = [0xE7, 0xE7, 0xE7, 0xE7, 0xE7]
+ADDR_RX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
 
-radioTx = configureRadio(CE_TX)
-radioRx = configureRadio(CE_RX)
 
-listenOnAddress(radioRx, ADDR_RX)
-transmitOnAddress(radioTx, ADDR_TX)
+print("TX addr: " + str(ADDR_TX))
+print("RX addr: " + str(ADDR_RX))
 
-print("init packet stack")
+if (config == "cfg1"):
+    # CE=0/IRQ=25 belongs together
+    # CE=1/IRQ=15
+    CE_TX = 0
+    CE_RX = 1
+    IRQ_TX = 25
+    IRQ_RX = 15
+
+else:
+    # Switch Rx/Tx
+    CE_TX = 1
+    CE_RX = 0
+    IRQ_TX = 15
+    IRQ_RX = 25
+
+
+radioRx = setupRadio(CE_RX)
+radioRx.openReadingPipe(1, ADDR_RX)
+radioRx.openReadingPipe(0, ADDR_RX)
+radioRx.startListening()
+
+
+radioTx = setupRadio(CE_TX)
+radioTx.startListening()
+radioTx.stopListening()
+time.sleep(130 / 1000000.0)
+
+radioTx.openWritingPipe(ADDR_TX)
+
+# setup the interrupts
+GPIO.setup(IRQ_TX, GPIO.IN)
+GPIO.setup(IRQ_RX, GPIO.IN)
+
+print("CE_TX=" + str(CE_TX))
+print("CE_RX=" + str(CE_RX))
+print("IRQ_TX=" + str(IRQ_TX))
+print("IRQ_RX=" + str(IRQ_RX))
+
+print(sys.version)
+print("----Tx---------")
+radioTx.printDetails()
+print("----Rx---------")
+radioRx.printDetails()
+
+
+print("init the packet stack")
 stack = PacketStack()
 
-veryFirstPacket = True
 
-info_receivedBurstNum = 0
-timer1=0
-print("ready")
+# run this to swtich the radio on and into tx mode
+radioTx.write_register(NRF24.CONFIG, (radioTx.read_register(NRF24.CONFIG) | _BV(NRF24.PWR_UP) ) & ~_BV(NRF24.PRIM_RX))
+radioTx.flush_rx()
+radioRx.flush_rx()
 
-while True:
+maxTries = 50000
+count = 0
+fails = 0
+timer1 = time.time()
 
-    burst = RxBurst()
+textout = True
 
-    timeOut = 100000
-    if (stack.isCompletlyReceived()):
-        timeOut = 2
+try:
+    while (count <= maxTries):
+        count += 1
 
-    rxData = waitForPacket(radioRx,IRQ_RX,timeOut)
-    if (rxData != None):
-        rxFrame = RxFrame(rxData)
-        burst.addFrame(rxFrame)
-    else:
-        exit()
+        burst = RxBurst()
+        radioRx.flush_rx()
 
+        print("waiting for next burst " + str(count))
+        data = receive(radioRx, IRQ_RX, 10000000)
+        frame = RxFrame(data)
+        burst.addFrame(frame)
 
-    while True:
-        rxData = waitForPacket(radioRx,IRQ_RX,burst.getTimeOut())
-        if (rxData != None):
-            rxFrame = RxFrame(rxData)
-            burst.addFrame(rxFrame)
+        while True:
+            data = receive(radioRx, IRQ_RX, burst.getTimeOut())
 
-        else:
-            break
+            if (data != None):
+                if (textout):
+                    frame = RxFrame(data)
+                    burst.addFrame(frame)
+                    #print(data)
+                    pass
+            else:
+                if (textout):
+                    print("timeout")
+                fails+=1
+                break
 
-    radioRx.flush_rx()
-    radioTx.flush_tx()
+        print("send an ACK")
+        transmit(radioTx,IRQ_TX,burst.getACK())
+        print(burst.getACK())
+        stack.addBurst(burst)
 
-    info_receivedBurstNum += 1
-    
-    stack.addBurst(burst)
-    transmitPacket(radioTx,IRQ_TX, burst.getACK() )
+        if (stack.isCompletlyReceived()):
+            print("file received!")
 
-    if (stack.isCompletlyReceived()):
-        print("file completly received")
-        stack.writeToFile(RCV_FILE_NAME)
+except KeyboardInterrupt:
+    print("")
+finally:
+    stack.writeToFile(FILE_NAME)
+    GPIO.cleanup()
+    print("time elapsed: " + str(time.time()-timer1))
+    print("transmitted: " + str(count))
+    print("timeouts: " + str(fails))
