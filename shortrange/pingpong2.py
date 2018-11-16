@@ -71,23 +71,16 @@ if (addressing == "self"):
     # Self test configuration
     ADDR_TX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
     ADDR_RX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
-    testPacket = []
-    for i in range(0,32):
-        testPacket.append(i)
+
 elif (addressing == "r1"):
     # Normal configuration Raspi 2
     ADDR_TX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
     ADDR_RX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
-    testPacket = []
-    for i in range(0,32):
-        testPacket.append(i)
+
 else:
     # Normal configuration Raspi 3
     ADDR_TX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
     ADDR_RX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
-    testPacket = []
-    for i in range(0,32):
-        testPacket.append(32-i)
 
 
 print("TX addr: " + str(ADDR_TX))
@@ -107,6 +100,8 @@ else:
     CE_RX = 0
     IRQ_TX = 20
     IRQ_RX = 16
+
+testPacket = [0x00] * 32
 
 
 radioRx = setupRadio(CE_RX)
@@ -164,29 +159,37 @@ try:
     while (count <= maxTries):
         count += 1
 
+        testPacket[0] = count % 256
+        testPacket[31] = count % 256
+
         if (GPIO.input(IRQ_TX) == 0):
-            print("CAUTION: IRQ_TX seems not to be reseted properly")
+            print("CAUTION: IRQ_TX 0 before transmission")
+
+        if (GPIO.input(IRQ_RX) == 0):
+            print("CAUTION: IRQ_RX 0 before transmission")
 
         transmit(radioTx, IRQ_TX, testPacket)
 
         if (textout):
-            print("transmitted a packet")
+            print("tx: " + str(testPacket))
 
         if (count % 100 == 0):
             print(str(count) + "/" + str(fails))
 
-        if (GPIO.input(IRQ_RX) == 0):
-            print("CAUTION: IRQ_RX seems not to be reseted properly")
+        #time.sleep(0.5)
 
         data = receive(radioRx, IRQ_RX, 0.1)
 
         if (data != None):
             if (textout):
-                print(data)
+                print("rx: " + str(data))
         else:
             if (textout):
-                print("timeout")
+                print("rx: timeout")
             fails+=1
+
+        if (textout):
+            print("-------------------------------------")
 
         #raw_input("press a button")
 
