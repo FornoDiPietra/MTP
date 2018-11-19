@@ -5,17 +5,16 @@ GPIO.setmode(GPIO.BCM)
 from lib_nrf24 import NRF24
 import time, sys, argparse
 import spidev
-from lib_protocol_shortrange import *
 
 def _BV(x):
     return 1
 
 def setupRadio(CE):
     CHANNEL = 0x60
-    POWER = NRF24.PA_MAX
+    #POWER = NRF24.PA_MAX
     #POWER = NRF24.PA_HIGH
     #POWER = NRF24.PA_LOW
-    #POWER = NRF24.PA_MIN
+    POWER = NRF24.PA_MIN
     DATARATE = NRF24.BR_2MBPS
 
     radio = NRF24(GPIO, spidev.SpiDev())
@@ -56,18 +55,32 @@ def receive(radio, IRQ, timeout):
         return None
 
 
-if (len(sys.argv) < 2):
-    print("shortrange_tx.py <file> <config: cfg1|cfg2>")
+if (len(sys.argv) < 4):
+    print("pingpong2.py <addressing:self|r1|r2> <config:cfg1|cfg2> <textout|notextout>")
     sys.exit()
 
-FILE_NAME = sys.argv[1]
-config = "cfg1"
-if (len(sys.argv)> 2):
-    config = sys.argv[2]
+addressing = sys.argv[1]
+config = sys.argv[2]
 
-# Normal configuration Raspi 2
-ADDR_TX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
-ADDR_RX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
+if (sys.argv[3] == "textout"):
+    textout = True
+else:
+    textout = False
+
+if (addressing == "self"):
+    # Self test configuration
+    ADDR_TX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
+    ADDR_RX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
+
+elif (addressing == "r1"):
+    # Normal configuration Raspi 2
+    ADDR_TX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
+    ADDR_RX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
+
+else:
+    # Normal configuration Raspi 3
+    ADDR_TX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
+    ADDR_RX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
 
 
 print("TX addr: " + str(ADDR_TX))
@@ -87,6 +100,8 @@ else:
     CE_RX = 0
     IRQ_TX = 20
     IRQ_RX = 16
+
+testPacket = [0x00] * 32
 
 
 radioRx = setupRadio(CE_RX)
@@ -117,10 +132,15 @@ radioTx.printDetails()
 print("----Rx---------")
 radioRx.printDetails()
 
+print("\n\ntesting the IRQs")
+print("IRQ_TX: " + str(GPIO.input(IRQ_TX)))
+print("IRQ_RX: " + str(GPIO.input(IRQ_RX)))
+print("reseting both  interrupts")
+radioRx.write_register(NRF24.STATUS, 0x70)
+radioTx.write_register(NRF24.STATUS, 0x70)
+print("IRQ_TX: " + str(GPIO.input(IRQ_TX)))
+print("IRQ_RX: " + str(GPIO.input(IRQ_RX)))
 
-print("init the packet stack")
-stack = PacketStack()
-stack.readFromFile(FILE_NAME)
 
 raw_input("press button to start test")
 
@@ -135,51 +155,43 @@ count = 0
 fails = 0
 
 timer1 = time.time()
-textout = True
-
-debug_time = False
-
 try:
-    while (not stack.isAllConfirmed()):
+    while (count <= maxTries):
         count += 1
 
-        timer2 = time.time()
-        timer3 = time.time()
+        testPacket[0] = count % 256
+        testPacket[31] = count % 256
 
-        burst = stack.createBurst()
+        if (GPIO.input(IRQ_TX) == 0):
+            print("CAUTION: IRQ_TX 0 before transmission")
 
-        if (debug_time):
-        	print("    " + str(time.time()-timer3) + "s for processing a new burst")
-        timer3 = time.time()
+        if (GPIO.input(IRQ_RX) == 0):
+            print("CAUTION: IRQ_RX 0 before transmission")
 
-        for frame in burst:
-            transmit(radioTx, IRQ_TX, frame.getRawData())
+        transmit(radioTx, IRQ_TX, testPacket)
 
-       	if (debug_time):
-        	print("    " + str(time.time()-timer3) + "s for burst transmission")
-        timer3 = time.time()
+        if (textout):
+            print("tx: " + str(testPacket))
 
-        radioRx.flush_rx()
+        if (count % 100 == 0):
+            print(str(count) + "/" + str(fails))
 
-        #now wait for the ACK
-        data = receive(radioRx, IRQ_RX, 1.2)
+        #time.sleep(0.5)
 
-        if (debug_time):
-        	print("    " + str(time.time() - timer3) + "s waiting for the ACK")
-        timer3 = time.time()
+        data = receive(radioRx, IRQ_RX, 0.1)
 
-        ack_message = ""
         if (data != None):
-            burst.ACK(data,stack)
+            if (textout):
+                print("rx: " + str(data))
         else:
-            ack_message = " (ACK timeout)"
+            if (textout):
+                print("rx: timeout")
             fails+=1
 
-        if (debug_time):
-        	print("    " + str(time.time()-timer3) + "s for processing the ACK")
+        if (textout):
+            print("-------------------------------------")
 
-        print("burst transmitted in " + str(time.time()-timer2) + "s; " + str(stack._packetCount) + " packets left" + ack_message)
-
+        #raw_input("press a button")
 
 except KeyboardInterrupt:
     print("")
