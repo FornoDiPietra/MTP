@@ -10,10 +10,10 @@ import os
 stack = PacketStack()
 rxStack = PacketStack()
 
-FILE_NAME = "../testfiles/test_pat_001.txt"
+FILE_NAME = "../testfiles/test_pat_003.txt"
 
-os.system('gzip < "'+FILE_NAME+'" > data.txt.gz')
-stack.readFromFile("data.txt.gz")
+#os.system('gzip < "'+FILE_NAME+'" > data.txt.gz')
+stack.readFromFile(FILE_NAME)
 
 #stack._packets[1].confirm()
 
@@ -77,5 +77,5 @@ while True:
 print("sent: " + str(burstCounter) + " bursts")
 print("lost: " + str(lostCounter) + " data packets")
 print("lost: " + str(ackLostCounter) + " ACKs") 
-rxStack.writeToFile("received.txt.gz")
-os.system("gunzip < received.txt.gz > received.txt")
+rxStack.writeToFile("received.txt")
+#os.system("gunzip < received.txt.gz > received.txt")

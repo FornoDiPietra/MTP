@@ -171,7 +171,7 @@ class PacketStack:
                 if (p.isValid()):
                     if (i == self._packetCount-1):
                         # this is the last packet and we need to care for the padding
-                        f.write(bytearray(p.getPayloadData()[:32-padding]))
+                        f.write(bytearray(p.getPayloadData()[:29-padding]))
                     else:
                         f.write(bytearray(p.getPayloadData()))
         f.close()
