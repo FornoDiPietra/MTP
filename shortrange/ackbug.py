@@ -178,7 +178,11 @@ try:
 
         #time.sleep(0.5)
 
-        data = receive(radioRx, IRQ_RX, 0.1)
+        raw_input("press a button to start receiving")
+
+        data = receive(radioRx, IRQ_RX, 10)
+
+        raw_input("press a button to send the next packet")
 
         if (data != None):
             if (textout):

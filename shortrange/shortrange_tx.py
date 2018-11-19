@@ -160,9 +160,10 @@ try:
         timer3 = time.time()
 
         radioRx.flush_rx()
+        radioRx.write_register(NRF24.STATUS, 0x70)    #clear the interrupt
 
         #now wait for the ACK
-        data = receive(radioRx, IRQ_RX, 1.2)
+        data = receive(radioRx, IRQ_RX, 0.2)
 
         if (debug_time):
         	print("    " + str(time.time() - timer3) + "s waiting for the ACK")
