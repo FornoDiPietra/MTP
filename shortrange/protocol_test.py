@@ -10,7 +10,7 @@ import os
 stack = PacketStack()
 rxStack = PacketStack()
 
-FILE_NAME = "../testfiles/test_pat_003.txt"
+FILE_NAME = "test002.txt"
 
 #os.system('gzip < "'+FILE_NAME+'" > data.txt.gz')
 stack.readFromFile(FILE_NAME)
@@ -29,9 +29,9 @@ while True:
 	burst = stack.createBurst()
 	rxBurst = RxBurst()
 
-	#raw_input("see tx burst...")
+	raw_input("see tx burst...")
 
-	#print(str(burst))
+	print(str(burst))
 
 	print("transmitting frames... (Channel magic is happening)")
 	c=0
@@ -78,4 +78,6 @@ print("sent: " + str(burstCounter) + " bursts")
 print("lost: " + str(lostCounter) + " data packets")
 print("lost: " + str(ackLostCounter) + " ACKs") 
 rxStack.writeToFile("received.txt")
+print("check:")
+result = os.system("cmp " + FILE_NAME + " received.txt")
 #os.system("gunzip < received.txt.gz > received.txt")

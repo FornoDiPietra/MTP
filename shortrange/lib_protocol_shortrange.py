@@ -6,6 +6,7 @@ class Packet:
         self._rawData = [0x00]*31
         self._confirmed = False
         self._valid = False
+        self.inStack = True
 
     def isValid(self):
         return self._valid
@@ -182,7 +183,7 @@ class PacketStack:
         i = 0
         j = 0
         while (not burst.isFull()):
-            for packet in self._packets:
+            for packet in self._packets[:self._packetCount]:
                 j+=1
                 if not packet.isConfirmed():
                     burst.addPacket(packet)
@@ -215,8 +216,16 @@ class PacketStack:
         return paddingLen
 
     def isAllConfirmed(self):
+        print("library: packetcount: " + str(self._packetCount))
+        print("library: len packets: " + str(len(self._packets)))
         for i in range(0,self._packetCount):
             if (not self._packets[i].isConfirmed()):
+                return False
+        return True
+
+    def safeIsAllConfirmed(self):
+        for packet in self._packets:
+            if (not packet.isConfirmed() and packet.isValid()):
                 return False
         return True
 
@@ -262,8 +271,11 @@ class TxBurst:
             for i in range(0,8):
                 if ( (b & 0x01<<i) != 0 and j<self._burstSize):
                     self._frames[j].getPacket().confirm()
-                    stack._packets.remove(self._frames[j].getPacket())
-                    stack._packetCount -= 1
+                    if (stack._packetCount > 0):
+                        if (self._frames[j].getPacket().inStack and self._frames[j].getPacket().isValid()):
+                            self._frames[j].getPacket().inStack = False
+                            stack._packets.remove(self._frames[j].getPacket())
+                            stack._packetCount -= 1
                 j+=1 
 
     def __str__(self):
