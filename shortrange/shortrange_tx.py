@@ -6,12 +6,13 @@ from lib_nrf24 import NRF24
 import time, sys, argparse
 import spidev
 from lib_protocol_shortrange import *
+import os
 
 def _BV(x):
     return 1
 
 def setupRadio(CE):
-    CHANNEL = 0x60
+    CHANNEL = 0x70
     POWER = NRF24.PA_MAX
     #POWER = NRF24.PA_HIGH
     #POWER = NRF24.PA_LOW
@@ -57,7 +58,7 @@ def receive(radio, IRQ, timeout):
 
 
 if (len(sys.argv) < 2):
-    print("shortrange_tx.py <file> <config: cfg1|cfg2>")
+    print("shortrange_tx.py <file> <config: cfg1|cfg2> <compress|nocompress>")
     sys.exit()
 
 FILE_NAME = sys.argv[1]
@@ -65,13 +66,19 @@ config = "cfg1"
 if (len(sys.argv)> 2):
     config = sys.argv[2]
 
+compression = False
+if (len(sys.argv) > 3):
+	if (sys.argv[3] == "compress"):
+		compression = True
+
 # Normal configuration Raspi 2
 ADDR_TX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
 ADDR_RX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
+ACK_TIMEOUT = 0.2
 
 
 print("TX addr: " + str(ADDR_TX))
-print("RX addr: " + str(ADDR_RX))
+print("RX addr: " + str(ADDR_RX))	
 
 if (config == "cfg1"):
     # CE=0/IRQ=25 belongs together
@@ -120,9 +127,17 @@ radioRx.printDetails()
 
 print("init the packet stack")
 stack = PacketStack()
-stack.readFromFile(FILE_NAME)
 
-raw_input("press button to start test")
+if (compression):
+	print("compressing file")
+	os.system("gzip < " + FILE_NAME + " > tmp.gz")
+	print("reading file compressed file tmp.gz")
+	stack.readFromFile("tmp.gz",True)
+else:
+	print("reading file " + FILE_NAME)
+	stack.readFromFile(FILE_NAME, False)
+
+raw_input("press button to start")
 
 
 # run this to swtich the radio on and into tx mode
@@ -130,17 +145,16 @@ radioTx.write_register(NRF24.CONFIG, (radioTx.read_register(NRF24.CONFIG) | _BV(
 radioTx.flush_rx()
 radioRx.flush_rx()
 
-maxTries = 50000
 count = 0
-fails = 0
+ackLost = 0
 
 timer1 = time.time()
-textout = True
 
-debug_time = False
+stats = []
 
 try:
     while (not stack.isAllConfirmed()):
+    	timingStat = []
         count += 1
 
         timer2 = time.time()
@@ -148,25 +162,25 @@ try:
 
         burst = stack.createBurst()
 
-        if (debug_time):
-        	print("    " + str(time.time()-timer3) + "s for processing a new burst")
+        # How long did it take to create the burst?
+        timingStat.append(time.time()-timer3) 	
         timer3 = time.time()
 
         for frame in burst:
             transmit(radioTx, IRQ_TX, frame.getRawData())
 
-       	if (debug_time):
-        	print("    " + str(time.time()-timer3) + "s for burst transmission")
+       	# How long did it take to transmit the burst
+       	timingStat.append(time.time()-timer3)
         timer3 = time.time()
 
         radioRx.flush_rx()
         radioRx.write_register(NRF24.STATUS, 0x70)    #clear the interrupt
 
         #now wait for the ACK
-        data = receive(radioRx, IRQ_RX, 0.2)
+        data = receive(radioRx, IRQ_RX, ACK_TIMEOUT)
 
-        if (debug_time):
-        	print("    " + str(time.time() - timer3) + "s waiting for the ACK")
+        # How long did we wait for the ACK
+        timingStat.append(time.time() - timer3)
         timer3 = time.time()
 
         ack_message = ""
@@ -176,16 +190,37 @@ try:
             ack_message = " (ACK timeout)"
             fails+=1
 
-        if (debug_time):
-        	print("    " + str(time.time()-timer3) + "s for processing the ACK")
+       	print(str(stack._packetCount) + " packets left")
 
-        print("burst transmitted in " + str(time.time()-timer2) + "s; " + str(stack._packetCount) + " packets left" + ack_message)
+        # How long did it take to process the ACK
+        timingStat.append(time.time()-timer3)
+        # How long did the whole burst transmission take?
+        timingStat.append(time.time()-timer2)
+        timingStat.append(count)
+        timingStat.append(fails)
 
+        stats.append(timingStat)
 
 except KeyboardInterrupt:
     print("")
 finally:
     GPIO.cleanup()
-    print("time elapsed: " + str(time.time()-timer1))
+    totalTime = time.time()-timer1
+    print("time elapsed: " + str(totalTime))
     print("transmitted: " + str(count))
     print("timeouts: " + str(fails))
+    print("saving logfile, don't cancel!")
+
+    logFile = open(FILE_NAME + ".timelog")
+
+    logFile.write(time.asctime( time.localtime(time.time())) + "\n")
+    logFile.write("total time elapsed: " + str(totalTime) + "\n")
+    logFile.write("---------------------------------------\n")
+
+    # Write the timing statistics
+    logFile.write("Burst_create;Burst_transmit;ACK_wait;Process_ACK;total;burst_count;ack_timeout_count\n")
+    for timingStat in stats:
+    	for datum in timingStat:
+    		logFile.write(str(datum) + ";")
+    	logFile.write("\n")
+    logFile.close()

@@ -6,12 +6,13 @@ from lib_nrf24 import NRF24
 import time, sys, argparse
 import spidev
 from lib_protocol_shortrange import *
+import os
 
 def _BV(x):
     return 1
 
 def setupRadio(CE):
-    CHANNEL = 0x60
+    CHANNEL = 0x70
     POWER = NRF24.PA_MAX
     #POWER = NRF24.PA_HIGH
     #POWER = NRF24.PA_LOW
@@ -56,13 +57,10 @@ def receive(radio, IRQ, timeout):
         return None
 
 
-if (len(sys.argv) < 2):
-    print("shortrange_tx.py <file> <config: cfg1|cfg2>")
-    sys.exit()
 
 FILE_NAME = sys.argv[1]
 config = "cfg1"
-if (len(sys.argv)> 2):
+if (len(sys.argv)> 1):
     config = sys.argv[2]
 
 # Normal configuration Raspi 2
@@ -130,9 +128,10 @@ radioRx.flush_rx()
 maxTries = 50000
 count = 0
 fails = 0
+stats = []
 timer1 = time.time()
 
-textout = True
+print("waiting for bursts")
 
 try:
     while (count <= maxTries):
@@ -141,7 +140,6 @@ try:
         burst = RxBurst()
         radioRx.flush_rx()
 
-        print("waiting for next burst " + str(count))
         data = receive(radioRx, IRQ_RX, 10000000)
         frame = RxFrame(data)
         burst.addFrame(frame)
@@ -150,30 +148,54 @@ try:
             data = receive(radioRx, IRQ_RX, burst.getTimeOut())
 
             if (data != None):
-                if (textout):
-                    frame = RxFrame(data)
-                    burst.addFrame(frame)
-                    #print(data)
-                    pass
+                frame = RxFrame(data)
+                burst.addFrame(frame)
             else:
-                if (textout):
-                    print("timeout")
-                fails+=1
                 break
 
-        print("send an ACK")
         transmit(radioTx,IRQ_TX,burst.getACK())
-        print(burst.getACK())
+        transmit(radioTx,IRQ_TX,burst.getACK())
+        transmit(radioTx,IRQ_TX,burst.getACK())
+        transmit(radioTx,IRQ_TX,burst.getACK())
+        transmit(radioTx,IRQ_TX,burst.getACK())
+        print("received burst: " + str(count) + " - " + str(burst.statsNumRcv) + "/256")
         stack.addBurst(burst)
 
+        stats.append([count, burst.statsNumRcv])
+
         if (stack.isCompletlyReceived()):
-            print("file received!")
+            print("\033[92m file received!\033[0m")
+            totalTime = time.time() - timer1
 
 except KeyboardInterrupt:
     print("")
 finally:
-    stack.writeToFile(FILE_NAME)
+    fileName = stack._packets[0].getFileName()
+    compression = stack._packets[0].getCompression()
+    print("recovered file name:" + fileName)
+
+    tmpFileName = fileName
+    if (compression):
+        tmpFileName = "tmp.gz"
+
+    print("writing received data to file: " + tmpFileName)
+    stack.writeToFile(tmpFileName)
+
+    if (compression):
+        print("decompressing file")
+        os.system("gunzip < tmp.gz > " + fileName)
+
     GPIO.cleanup()
-    print("time elapsed: " + str(time.time()-timer1))
+    print("time elapsed: " + str(totalTime))
     print("transmitted: " + str(count))
     print("timeouts: " + str(fails))
+
+    print("saving packet loss statistics")
+    logFile = open(fileName + ".loss")
+    logFile.write(time.asctime( time.localtime(time.time())) + "\n")
+    logFile.write("total time: " + str(totalTime) + "\n")
+
+    logFile.write("burst_count;losses\n")
+    for s in stats:
+        logFile.write(str(s[0]) + ";" + str(s[1]) + "\n")
+    logFile.close()

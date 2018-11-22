@@ -1,5 +1,3 @@
-import os
-
 burstSize = 256
 
 class Packet:
@@ -8,7 +6,6 @@ class Packet:
         self._rawData = [0x00]*31
         self._confirmed = False
         self._valid = False
-        self.inStack = True
 
     def isValid(self):
         return self._valid
@@ -84,28 +81,6 @@ class MagicPacket(Packet):
         low  = self._rawData[5]
         return high<<8 | low
 
-    def setFileName(self, name):
-        i=7
-        for letter in name[0:24]:
-            i+=1
-            self._rawData[i] = ord(letter)
-
-    def getFileName(self):
-        name = ""
-        for letter in self._rawData[7:31]:
-            if (letter != 0):
-                name = name + chr(letter)
-        return name
-
-    def setCompression(self):
-        self._rawData[6] = 0xff
-
-    def isCompressed(self):
-        if (self._rawData[6] == 0xff):
-            return True
-        else:
-            return False
-
 class TxFrame:
 
     def __init__(self):
@@ -160,14 +135,8 @@ class PacketStack:
         self._packetCount = 0
         self._unconfirmedIndexes = range(0,0xFFFF)
 
-
-    def readFromFile(self, fileName, compression=False, blockSize=29):
+    def readFromFile(self, fileName, blockSize=29):
         firstPacket = self._packets[0]
-        firstPacket.setFileName(os.path.basename(fileName))
-
-        if (compression):
-            firstPacket.setCompression()
-
         self._packetCount=1
         with open(fileName, "rb") as f:
             byteBlock = f.read(blockSize)
@@ -213,7 +182,7 @@ class PacketStack:
         i = 0
         j = 0
         while (not burst.isFull()):
-            for packet in self._packets[:self._packetCount]:
+            for packet in self._packets:
                 j+=1
                 if not packet.isConfirmed():
                     burst.addPacket(packet)
@@ -231,6 +200,8 @@ class PacketStack:
                 self._packetCount+=1
                 c+=1
 
+        #print("added " + str(c) + " frames from burst")
+
     def _convertToArray(self, byteBlock):
         arr = []
         for b in byteBlock:
@@ -246,12 +217,6 @@ class PacketStack:
     def isAllConfirmed(self):
         for i in range(0,self._packetCount):
             if (not self._packets[i].isConfirmed()):
-                return False
-        return True
-
-    def safeIsAllConfirmed(self):
-        for packet in self._packets:
-            if (not packet.isConfirmed() and packet.isValid()):
                 return False
         return True
 
@@ -297,11 +262,8 @@ class TxBurst:
             for i in range(0,8):
                 if ( (b & 0x01<<i) != 0 and j<self._burstSize):
                     self._frames[j].getPacket().confirm()
-                    if (stack._packetCount > 0):
-                        if (self._frames[j].getPacket().inStack and self._frames[j].getPacket().isValid()):
-                            self._frames[j].getPacket().inStack = False
-                            stack._packets.remove(self._frames[j].getPacket())
-                            stack._packetCount -= 1
+                    stack._packets.remove(self._frames[j].getPacket())
+                    stack._packetCount -= 1
                 j+=1 
 
     def __str__(self):
@@ -330,17 +292,17 @@ class RxBurst(TxBurst):
         self._burstSize = burstSize
         self._frameCount = self._burstSize
         self._frames = []
-        self._frameTime = 0.0015
+        self._frameTime = 0.1
         self._timeOut = self._burstSize * self._frameTime
         self._ack = [0x00] * 32
         for i in range(0,self._burstSize):
             self._frames.append(None)
 
-        self.statsNumRcv = 0
+        self._statsNumRcv = 0
 
     def addFrame(self, frame):
         if (frame.getBurstId() < self._burstSize):
-            self.statsNumRcv +=1
+            self._statsNumRcv +=1
             self._frames[frame.getBurstId()] = frame
             self.markACKbit(frame.getBurstId())
             self._timeOut = (self._burstSize - frame.getBurstId()-1)*self._frameTime

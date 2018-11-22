@@ -10,10 +10,12 @@ import os
 stack = PacketStack()
 rxStack = PacketStack()
 
-FILE_NAME = "test002.txt"
+FILE_NAME = "../testfiles/test_pat_009.txt"
 
 #os.system('gzip < "'+FILE_NAME+'" > data.txt.gz')
 stack.readFromFile(FILE_NAME)
+
+fName = stack._packets[0].getFileName()
 
 #stack._packets[1].confirm()
 
@@ -29,9 +31,9 @@ while True:
 	burst = stack.createBurst()
 	rxBurst = RxBurst()
 
-	raw_input("see tx burst...")
+	#raw_input("see tx burst...")
 
-	print(str(burst))
+	#print(str(burst))
 
 	print("transmitting frames... (Channel magic is happening)")
 	c=0
@@ -66,18 +68,21 @@ while True:
 
 	#print("see the Rx stack")
 	rxStack.addBurst(rxBurst)
+	print("Rx burst: " + str(rxBurst.statsNumRcv) + " packets received")
 	#print(str(rxStack))
 
-	print("is complete? " + str(rxStack.isCompletlyReceived()))
+	print("Rx complete? " + str(rxStack.isCompletlyReceived()))
+	print("Tx complete? " + str(stack.isAllConfirmed()))
 	if (rxStack.isCompletlyReceived()):
 		break
 
 	#raw_input("press for next round...")
-
+print("\033[92m file received!\033[0m")
 print("sent: " + str(burstCounter) + " bursts")
 print("lost: " + str(lostCounter) + " data packets")
 print("lost: " + str(ackLostCounter) + " ACKs") 
 rxStack.writeToFile("received.txt")
+print("filename: " + rxStack._packets[0].getFileName())
 print("check:")
 result = os.system("cmp " + FILE_NAME + " received.txt")
 #os.system("gunzip < received.txt.gz > received.txt")
