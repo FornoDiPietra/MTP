@@ -188,7 +188,7 @@ try:
             burst.ACK(data,stack)
         else:
             ack_message = " (ACK timeout)"
-            fails+=1
+            ackLost+=1
 
        	print(str(stack._packetCount) + " packets left")
 
@@ -197,7 +197,7 @@ try:
         # How long did the whole burst transmission take?
         timingStat.append(time.time()-timer2)
         timingStat.append(count)
-        timingStat.append(fails)
+        timingStat.append(ackLost)
 
         stats.append(timingStat)
 
@@ -208,10 +208,10 @@ finally:
     totalTime = time.time()-timer1
     print("time elapsed: " + str(totalTime))
     print("transmitted: " + str(count))
-    print("timeouts: " + str(fails))
+    print("timeouts: " + str(ackLost))
     print("saving logfile, don't cancel!")
 
-    logFile = open(FILE_NAME + ".timelog")
+    logFile = open(os.path.basename(FILE_NAME) + ".timelog","w+")
 
     logFile.write(time.asctime( time.localtime(time.time())) + "\n")
     logFile.write("total time elapsed: " + str(totalTime) + "\n")
