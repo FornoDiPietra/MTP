@@ -132,7 +132,7 @@ if (compression):
 	print("compressing file")
 	os.system("gzip < " + FILE_NAME + " > tmp.gz")
 	print("reading file compressed file tmp.gz")
-	stack.readFromFile("tmp.gz",True)
+	stack.readFromFile("tmp.gz",True,FILE_NAME)
 else:
 	print("reading file " + FILE_NAME)
 	stack.readFromFile(FILE_NAME, False)

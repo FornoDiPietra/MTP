@@ -161,12 +161,13 @@ class PacketStack:
         self._unconfirmedIndexes = range(0,0xFFFF)
 
 
-    def readFromFile(self, fileName, compression=False, blockSize=29):
+    def readFromFile(self, fileName, compression=False, fileNameUncompressed="", blockSize=29):
         firstPacket = self._packets[0]
         firstPacket.setFileName(os.path.basename(fileName))
 
         if (compression):
             firstPacket.setCompression()
+            firstPacket.setFileName(os.path.basename(fileNameUncompressed))
 
         self._packetCount=1
         with open(fileName, "rb") as f:

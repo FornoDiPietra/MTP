@@ -155,9 +155,7 @@ try:
 
         transmit(radioTx,IRQ_TX,burst.getACK())
         transmit(radioTx,IRQ_TX,burst.getACK())
-        transmit(radioTx,IRQ_TX,burst.getACK())
-        transmit(radioTx,IRQ_TX,burst.getACK())
-        transmit(radioTx,IRQ_TX,burst.getACK())
+        radio.write_register(NRF24.STATUS, 0x70)    #reset interrupt
         print("received burst: " + str(count) + " - " + str(burst.statsNumRcv) + "/256")
         stack.addBurst(burst)
 
@@ -171,7 +169,7 @@ except KeyboardInterrupt:
     print("")
 finally:
     fileName = stack._packets[0].getFileName()
-    compression = stack._packets[0].getCompression()
+    compression = stack._packets[0].isCompressed()
     print("recovered file name:" + fileName)
 
     tmpFileName = fileName
@@ -191,7 +189,7 @@ finally:
     print("timeouts: " + str(fails))
 
     print("saving packet loss statistics")
-    logFile = open(fileName + ".loss")
+    logFile = open(fileName + ".loss","w+")
     logFile.write(time.asctime( time.localtime(time.time())) + "\n")
     logFile.write("total time: " + str(totalTime) + "\n")
 
