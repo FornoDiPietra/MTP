@@ -56,12 +56,17 @@ def receive(radio, IRQ, timeout):
     else:
         return None
 
+if (len(sys.argv) == 1):
+    print(os.path.basename(sys.argv[0]) + " <cfg1|cfg2> <optional: filename (if not specified the filename is recovered)>")
+    sys.exit()
 
-
-FILE_NAME = sys.argv[1]
 config = "cfg1"
-if (len(sys.argv)> 1):
-    config = sys.argv[2]
+if (len(sys.argv) > 1):
+    config = sys.argv[1]
+
+FILE_NAME = ""
+if (len(sys.argv) > 2):
+    FILE_NAME = sys.argv[2]
 
 # Normal configuration Raspi 2
 ADDR_TX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
@@ -129,6 +134,7 @@ maxTries = 50000
 count = 0
 fails = 0
 stats = []
+totalTime = 0
 timer1 = time.time()
 
 print("waiting for bursts")
@@ -171,6 +177,10 @@ finally:
     fileName = stack._packets[0].getFileName()
     compression = stack._packets[0].isCompressed()
     print("recovered file name:" + fileName)
+
+    if (FILE_NAME != ""):
+        print("saving file as " + FILE_NAME + " (specified as an argument)")
+        fileName = FILE_NAME
 
     tmpFileName = fileName
     if (compression):
