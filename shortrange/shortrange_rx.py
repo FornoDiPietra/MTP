@@ -155,7 +155,7 @@ try:
 
         transmit(radioTx,IRQ_TX,burst.getACK())
         transmit(radioTx,IRQ_TX,burst.getACK())
-        radio.write_register(NRF24.STATUS, 0x70)    #reset interrupt
+        radioRx.write_register(NRF24.STATUS, 0x70)    #reset interrupt
         print("received burst: " + str(count) + " - " + str(burst.statsNumRcv) + "/256")
         stack.addBurst(burst)
 
