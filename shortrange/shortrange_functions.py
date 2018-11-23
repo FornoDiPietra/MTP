@@ -64,7 +64,7 @@ def CE():
     GPIO.output(CE_RX, GPIO.HIGH)
 
 
-def RX(config,RX_FOLDER, FILE_NAME=""):
+def RX(config,RX_FOLDER,led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_dir, btn, sw2, sw3, FILE_NAME=""):
     # Normal configuration Raspi 2
     ADDR_TX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
     ADDR_RX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
@@ -123,6 +123,8 @@ def RX(config,RX_FOLDER, FILE_NAME=""):
     print("init the packet stack")
     stack = PacketStack()
 
+    led_rx.on()
+
 
     # run this to swtich the radio on and into tx mode
     radioTx.write_register(NRF24.CONFIG, (radioTx.read_register(NRF24.CONFIG) | _BV(NRF24.PWR_UP) ) & ~_BV(NRF24.PRIM_RX))
@@ -135,21 +137,39 @@ def RX(config,RX_FOLDER, FILE_NAME=""):
     stats = []
     totalTime = 0
     timer1 = time.time()
+    data = None
+    stop = False
 
     print("waiting for bursts")
 
-    try:
-        while (count <= maxTries):
-            count += 1
 
-            burst = RxBurst()
-            radioRx.flush_rx()
+    while (not stop):
+        count += 1
 
-            data = receive(radioRx, IRQ_RX, 10000000)
+        burst = RxBurst()
+        radioRx.flush_rx()
+
+        led_a1.on()
+        while (data == None and not stop):
+            data = receive(radioRx, IRQ_RX, 0.5)
+
+            pressTime = time.time()
+            if (btn.isOn()):
+                led_err.blink()
+                btn.waitForRelease()
+                led_err.off()
+                if (time.time()-pressTime > 5):
+                    print("exit RX mode")
+                    stop = True
+
+
+        led_a1.off()
+
+        if (not stop):
             frame = RxFrame(data)
             burst.addFrame(frame)
 
-            while True:
+            while not stop:
                 data = receive(radioRx, IRQ_RX, burst.getTimeOut())
 
                 if (data != None):
@@ -166,52 +186,60 @@ def RX(config,RX_FOLDER, FILE_NAME=""):
 
             stats.append([count, burst.statsNumRcv])
 
+        if (stack.isCompletlyReceived() or stop):
             if (stack.isCompletlyReceived()):
                 print("\033[92m file received!\033[0m")
-                totalTime = time.time() - timer1
+                led_dir.on()
+                led_a1.off()
+            else:
+                print("canceling")
 
-                fileName = stack._packets[0].getFileName()
-                compression = stack._packets[0].isCompressed()
-                print("recovered file name:" + fileName)
+            totalTime = time.time() - timer1
 
-                if (FILE_NAME != ""):
-                    print("saving file as " + FILE_NAME + " (specified as an argument)")
-                    fileName = FILE_NAME
+            fileName = stack._packets[0].getFileName()
 
-                tmpFileName = fileName
-                if (compression):
-                    tmpFileName = "tmp.gz"
+            if fileName == None or fileName == "":
+                fileName = "no_filename_recovered.txt"
 
-                print("writing received data to file: " + tmpFileName)
-                stack.writeToFile(RX_FOLDER + tmpFileName)
+            compression = stack._packets[0].isCompressed()
+            print("recovered file name:" + fileName)
 
-                if (compression):
-                    print("decompressing file")
-                    os.system("gunzip < tmp.gz > " + fileName)
-                print("file stored")
+            if (FILE_NAME != ""):
+                print("saving file as " + FILE_NAME + " (specified as an argument)")
+                fileName = FILE_NAME
 
-    except KeyboardInterrupt:
-        print("")
-    finally:
-        
+            tmpFileName = fileName
+            if (compression):
+                tmpFileName = "tmp.gz"
 
-        GPIO.cleanup()
-        print("time elapsed: " + str(totalTime))
-        print("transmitted: " + str(count))
-        print("timeouts: " + str(fails))
+            print("writing received data to file: " + tmpFileName)
+            stack.writeToFile(RX_FOLDER + tmpFileName)
 
-        print("saving packet loss statistics")
-        logFile = open(fileName + ".loss","w+")
-        logFile.write(time.asctime( time.localtime(time.time())) + "\n")
-        logFile.write("total time: " + str(totalTime) + "\n")
+            if (compression):
+                print("decompressing file")
+                os.system("gunzip < " + RX_FOLDER + "tmp.gz > " + RX_FOLDER + fileName)
+            print("file stored")
+            break
 
-        logFile.write("burst_count;losses\n")
-        for s in stats:
-            logFile.write(str(s[0]) + ";" + str(s[1]) + "\n")
-        logFile.close()
+    print("time elapsed: " + str(totalTime))
+    print("transmitted: " + str(count))
+    print("timeouts: " + str(fails))
+
+    print("saving packet loss statistics")
+    logFile = open(fileName + ".loss","w+")
+    logFile.write(time.asctime( time.localtime(time.time())) + "\n")
+    logFile.write("total time: " + str(totalTime) + "\n")
+
+    logFile.write("burst_count;losses\n")
+    for s in stats:
+        logFile.write(str(s[0]) + ";" + str(s[1]) + "\n")
+    logFile.close()
+
+    btn.waitForPress()
+    btn.waitForRelease()
 
 
-def TX(FILE_NAME,config, compression=False):
+def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_dir, btn, sw2, sw3, compression=False):
     # Normal configuration Raspi 2
     ADDR_TX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
     ADDR_RX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
@@ -280,7 +308,14 @@ def TX(FILE_NAME,config, compression=False):
         print("reading file " + FILE_NAME)
         stack.readFromFile(FILE_NAME, False)
 
-    #raw_input("press button to start")
+    led_dir.on()
+
+    #wait for button press
+    btn.waitForPress()
+    btn.waitForRelease()
+
+    led_tx.blink()
+    led_dir.off()
 
 
     # run this to swtich the radio on and into tx mode
@@ -299,6 +334,7 @@ def TX(FILE_NAME,config, compression=False):
         while (not stack.isAllConfirmed()):
             timingStat = []
             count += 1
+            led_err.off()
 
             timer2 = time.time()
             timer3 = time.time()
@@ -332,8 +368,9 @@ def TX(FILE_NAME,config, compression=False):
             else:
                 ack_message = " (ACK timeout)"
                 ackLost+=1
+                led_err.on()
 
-            print(str(stack._packetCount) + " packets left")
+            print(str(stack._packetCount) + " packets left" + ack_message)
 
             # How long did it take to process the ACK
             timingStat.append(time.time()-timer3)
@@ -344,10 +381,13 @@ def TX(FILE_NAME,config, compression=False):
 
             stats.append(timingStat)
 
+        if (not stack.safeIsAllConfirmed()):
+            print("not safe all confirmed!!!")
+
     except KeyboardInterrupt:
         print("")
     finally:
-        GPIO.cleanup()
+
         totalTime = time.time()-timer1
         print("time elapsed: " + str(totalTime))
         print("transmitted: " + str(count))
@@ -367,3 +407,5 @@ def TX(FILE_NAME,config, compression=False):
                 logFile.write(str(datum) + ";")
             logFile.write("\n")
         logFile.close()
+
+        led_tx.on()

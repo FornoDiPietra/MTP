@@ -1,0 +1,5 @@
+Fri Nov 23 16:33:32 2018
+total time elapsed: 0.229914903641
+---------------------------------------
+Burst_create;Burst_transmit;ACK_wait;Process_ACK;total;burst_count;ack_timeout_count
+0.0291550159454;0.181289196014;0.00584816932678;0.0132718086243;0.229681015015;1;0;
