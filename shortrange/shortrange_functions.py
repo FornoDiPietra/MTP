@@ -55,7 +55,7 @@ def receive(radio, IRQ, timeout):
         return None
 
 
-def RX(config,FILE_NAME=""):
+def RX(config,RX_FOLDER, FILE_NAME=""):
     # Normal configuration Raspi 2
     ADDR_TX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
     ADDR_RX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
@@ -159,27 +159,30 @@ def RX(config,FILE_NAME=""):
                 print("\033[92m file received!\033[0m")
                 totalTime = time.time() - timer1
 
+                fileName = stack._packets[0].getFileName()
+                compression = stack._packets[0].isCompressed()
+                print("recovered file name:" + fileName)
+
+                if (FILE_NAME != ""):
+                    print("saving file as " + FILE_NAME + " (specified as an argument)")
+                    fileName = FILE_NAME
+
+                tmpFileName = fileName
+                if (compression):
+                    tmpFileName = "tmp.gz"
+
+                print("writing received data to file: " + tmpFileName)
+                stack.writeToFile(RX_FOLDER + tmpFileName)
+
+                if (compression):
+                    print("decompressing file")
+                    os.system("gunzip < tmp.gz > " + fileName)
+                print("file stored")
+
     except KeyboardInterrupt:
         print("")
     finally:
-        fileName = stack._packets[0].getFileName()
-        compression = stack._packets[0].isCompressed()
-        print("recovered file name:" + fileName)
-
-        if (FILE_NAME != ""):
-            print("saving file as " + FILE_NAME + " (specified as an argument)")
-            fileName = FILE_NAME
-
-        tmpFileName = fileName
-        if (compression):
-            tmpFileName = "tmp.gz"
-
-        print("writing received data to file: " + tmpFileName)
-        stack.writeToFile(tmpFileName)
-
-        if (compression):
-            print("decompressing file")
-            os.system("gunzip < tmp.gz > " + fileName)
+        
 
         GPIO.cleanup()
         print("time elapsed: " + str(totalTime))

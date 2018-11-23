@@ -3,18 +3,20 @@ import os
 import sys
 import time
 
+RX_FOLDER = "/home/pi/MTP/rxfile"
+TX_FOLDER = "/home/pi/MTP/txfile"
+
 def waitForFile():
-	path="/home/pi/txfile"
-	while len(os.listdir(path))<=0:
+	while len(os.listdir(TX_FOLDER))<=0:
 		time.sleep(1)
 
-	filesList = os.listdir(path)
+	filesList = os.listdir(TX_FOLDER)
 	return filesList[0]
 
-switch = "TX"
+switch = "RX"
 
 if (switch == "RX"):
-	RX("cfg1")
+	RX("cfg1",RX_FOLDER)
 
 else:
 	fileName = waitForFile()
