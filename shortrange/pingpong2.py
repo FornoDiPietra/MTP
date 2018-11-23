@@ -9,7 +9,7 @@ import spidev
 def _BV(x):
     return 1
 
-def setupRadio(CE):
+def setupRadio(CSE, CE):
     CHANNEL = 0x60
     #POWER = NRF24.PA_MAX
     #POWER = NRF24.PA_HIGH
@@ -18,7 +18,7 @@ def setupRadio(CE):
     DATARATE = NRF24.BR_2MBPS
 
     radio = NRF24(GPIO, spidev.SpiDev())
-    radio.begin(CE, 0)
+    radio.begin(CSE, CE)
     radio.setRetries(15,0)
     radio.setPayloadSize(32)
     radio.setChannel(CHANNEL)
@@ -89,28 +89,32 @@ print("RX addr: " + str(ADDR_RX))
 if (config == "cfg1"):
     # CE=0/IRQ=25 belongs together
     # CE=1/IRQ=15
-    CE_TX = 0
-    CE_RX = 1
+    CSE_TX = 0
+    CSE_RX = 1
+    CE_TX = 19
+    CE_RX = 26
     IRQ_TX = 16
     IRQ_RX = 20
 
 else:
     # Switch Rx/Tx
-    CE_TX = 1
-    CE_RX = 0
+    CSE_TX = 1
+    CSE_RX = 0
+    CE_TX = 26
+    CE_RX = 19
     IRQ_TX = 20
     IRQ_RX = 16
 
 testPacket = [0x00] * 32
 
 
-radioRx = setupRadio(CE_RX)
+radioRx = setupRadio(CSE_RX, CE_RX)
 radioRx.openReadingPipe(1, ADDR_RX)
 radioRx.openReadingPipe(0, ADDR_RX)
 radioRx.startListening()
 
 
-radioTx = setupRadio(CE_TX)
+radioTx = setupRadio(CSE_TX, CE_TX)
 radioTx.startListening()
 radioTx.stopListening()
 time.sleep(130 / 1000000.0)
@@ -121,8 +125,14 @@ radioTx.openWritingPipe(ADDR_TX)
 GPIO.setup(IRQ_TX, GPIO.IN)
 GPIO.setup(IRQ_RX, GPIO.IN)
 
-print("CE_TX=" + str(CE_TX))
-print("CE_RX=" + str(CE_RX))
+GPIO.setup(CE_TX, GPIO.OUT)
+GPIO.setup(CE_RX, GPIO.OUT)
+
+GPIO.output(CE_TX, GPIO.HIGH)
+GPIO.output(CE_RX, GPIO.HIGH)
+
+print("CE_TX=" + str(CSE_TX))
+print("CE_RX=" + str(CSE_RX))
 print("IRQ_TX=" + str(IRQ_TX))
 print("IRQ_RX=" + str(IRQ_RX))
 

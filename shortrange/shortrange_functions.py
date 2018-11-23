@@ -54,6 +54,15 @@ def receive(radio, IRQ, timeout):
     else:
         return None
 
+def CE():
+    CE_TX = 19
+    CE_RX = 26
+
+    GPIO.setup(CE_TX, GPIO.OUT)
+    GPIO.setup(CE_RX, GPIO.OUT)
+    GPIO.output(CE_TX, GPIO.HIGH)
+    GPIO.output(CE_RX, GPIO.HIGH)
+
 
 def RX(config,RX_FOLDER, FILE_NAME=""):
     # Normal configuration Raspi 2
@@ -78,6 +87,8 @@ def RX(config,RX_FOLDER, FILE_NAME=""):
         CE_RX = 0
         IRQ_TX = 20
         IRQ_RX = 16
+
+    CE()
 
 
     radioRx = setupRadio(CE_RX)
@@ -208,7 +219,9 @@ def TX(FILE_NAME,config, compression=False):
 
 
     print("TX addr: " + str(ADDR_TX))
-    print("RX addr: " + str(ADDR_RX))   
+    print("RX addr: " + str(ADDR_RX)) 
+
+    CE()  
 
     if (config == "cfg1"):
         # CE=0/IRQ=25 belongs together
