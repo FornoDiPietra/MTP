@@ -186,7 +186,7 @@ while True:
 			led_dir.blink()
 			print("found file: " + fileName)
 			time.sleep(1)
-			TX(TX_FOLDER + fileName,"cfg1",led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_dir,BTN,SW2,SW3,compression=False)
+			TX(TX_FOLDER + fileName,"cfg1",led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_dir,BTN,SW2,SW3,compression=True)
 
 
 for led in leds:

@@ -142,101 +142,117 @@ def RX(config,RX_FOLDER,led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_di
 
     print("waiting for bursts")
 
+    try:
+        while (not stop):
+            count += 1
 
-    while (not stop):
-        count += 1
+            burst = RxBurst()
+            radioRx.flush_rx()
+            radioRx.write_register(NRF24.STATUS, 0x70)
 
-        burst = RxBurst()
-        radioRx.flush_rx()
+            led_a1.on()
+            while (data == None and not stop):
+                data = receive(radioRx, IRQ_RX, 0.5)
 
-        led_a1.on()
-        while (data == None and not stop):
-            data = receive(radioRx, IRQ_RX, 0.5)
-
-            pressTime = time.time()
-            if (btn.isOn()):
-                led_err.blink()
-                btn.waitForRelease()
-                led_err.off()
-                if (time.time()-pressTime > 5):
-                    print("exit RX mode")
-                    stop = True
+                pressTime = time.time()
+                if (btn.isOn()):
+                    led_err.blink()
+                    btn.waitForRelease()
+                    led_err.off()
+                    if (time.time()-pressTime > 5):
+                        print("exit RX mode")
+                        stop = True
 
 
-        led_a1.off()
+            led_a1.off()
 
-        if (not stop):
-            frame = RxFrame(data)
-            burst.addFrame(frame)
+            if (not stop):
+                frame = RxFrame(data)
+                burst.addFrame(frame)
 
-            while not stop:
-                data = receive(radioRx, IRQ_RX, burst.getTimeOut())
+                while not stop:
+                    data = receive(radioRx, IRQ_RX, burst.getTimeOut())
 
-                if (data != None):
-                    frame = RxFrame(data)
-                    burst.addFrame(frame)
+                    if (data != None):
+                        frame = RxFrame(data)
+                        burst.addFrame(frame)
+                    else:
+                        break
+
+                transmit(radioTx,IRQ_TX,burst.getACK())
+                transmit(radioTx,IRQ_TX,burst.getACK())
+                transmit(radioTx,IRQ_TX,burst.getACK())
+                transmit(radioTx,IRQ_TX,burst.getACK())
+                transmit(radioTx,IRQ_TX,burst.getACK())
+
+                print("received burst: " + str(count) + " - " + str(burst.statsNumRcv) + "/256")
+                stack.addBurst(burst)
+
+                stats.append([count, burst.statsNumRcv])
+
+            if (stack.isCompletlyReceived() or stop):
+                if (stack.isCompletlyReceived()):
+                    print("\033[92m file received!\033[0m")
+                    led_dir.on()
+                    led_a1.off()
                 else:
-                    break
+                    print("canceling")
 
-            transmit(radioTx,IRQ_TX,burst.getACK())
-            transmit(radioTx,IRQ_TX,burst.getACK())
-            radioRx.write_register(NRF24.STATUS, 0x70)    #reset interrupt
-            print("received burst: " + str(count) + " - " + str(burst.statsNumRcv) + "/256")
-            stack.addBurst(burst)
+                totalTime = time.time() - timer1
 
-            stats.append([count, burst.statsNumRcv])
+                fileName = stack._packets[0].getFileName()
 
-        if (stack.isCompletlyReceived() or stop):
-            if (stack.isCompletlyReceived()):
-                print("\033[92m file received!\033[0m")
-                led_dir.on()
-                led_a1.off()
-            else:
-                print("canceling")
+                if fileName == None or fileName == "":
+                    fileName = "no_filename_recovered.txt"
 
-            totalTime = time.time() - timer1
+                compression = stack._packets[0].isCompressed()
+                print("recovered file name:" + fileName)
 
-            fileName = stack._packets[0].getFileName()
+                if (FILE_NAME != ""):
+                    print("saving file as " + FILE_NAME + " (specified as an argument)")
+                    fileName = FILE_NAME
 
-            if fileName == None or fileName == "":
-                fileName = "no_filename_recovered.txt"
+                tmpFileName = fileName
+                if (compression):
+                    tmpFileName = "tmp.gz"
 
-            compression = stack._packets[0].isCompressed()
-            print("recovered file name:" + fileName)
+                print("writing received data to file: " + tmpFileName)
+                stack.writeToFile(RX_FOLDER + tmpFileName)
 
-            if (FILE_NAME != ""):
-                print("saving file as " + FILE_NAME + " (specified as an argument)")
-                fileName = FILE_NAME
+                if (compression):
+                    print("decompressing file")
+                    os.system("gunzip < " + RX_FOLDER + "tmp.gz > " + RX_FOLDER + fileName)
+                print("file stored")
+                break
+    except KeyboardInterrupt:
+        print("")
+    finally:
 
-            tmpFileName = fileName
-            if (compression):
-                tmpFileName = "tmp.gz"
+        i=0
+        maxPack = stack._packets[0].getFileSize()
 
-            print("writing received data to file: " + tmpFileName)
-            stack.writeToFile(RX_FOLDER + tmpFileName)
+        while (i <= maxPack):
+            packet = stack._packets[i]
+            if (not packet.isValid()):
+                print(i)
+            i+=1
 
-            if (compression):
-                print("decompressing file")
-                os.system("gunzip < " + RX_FOLDER + "tmp.gz > " + RX_FOLDER + fileName)
-            print("file stored")
-            break
+        print("time elapsed: " + str(totalTime))
+        print("transmitted: " + str(count))
+        print("timeouts: " + str(fails))
 
-    print("time elapsed: " + str(totalTime))
-    print("transmitted: " + str(count))
-    print("timeouts: " + str(fails))
+        print("saving packet loss statistics")
+        logFile = open(fileName + ".loss","w+")
+        logFile.write(time.asctime( time.localtime(time.time())) + "\n")
+        logFile.write("total time: " + str(totalTime) + "\n")
 
-    print("saving packet loss statistics")
-    logFile = open(fileName + ".loss","w+")
-    logFile.write(time.asctime( time.localtime(time.time())) + "\n")
-    logFile.write("total time: " + str(totalTime) + "\n")
+        logFile.write("burst_count;losses\n")
+        for s in stats:
+            logFile.write(str(s[0]) + ";" + str(s[1]) + "\n")
+        logFile.close()
 
-    logFile.write("burst_count;losses\n")
-    for s in stats:
-        logFile.write(str(s[0]) + ";" + str(s[1]) + "\n")
-    logFile.close()
-
-    btn.waitForPress()
-    btn.waitForRelease()
+        btn.waitForPress()
+        btn.waitForRelease()
 
 
 def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_dir, btn, sw2, sw3, compression=False):
@@ -330,6 +346,8 @@ def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_d
 
     stats = []
 
+    firstBurst = False
+
     try:
         while (not stack.isAllConfirmed()):
             timingStat = []
@@ -340,6 +358,10 @@ def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_d
             timer3 = time.time()
 
             burst = stack.createBurst()
+
+            if (firstBurst == False):
+                print(str(burst))
+                firstBurst = True
 
             # How long did it take to create the burst?
             timingStat.append(time.time()-timer3)   
@@ -365,6 +387,7 @@ def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_d
             ack_message = ""
             if (data != None):
                 burst.ACK(data,stack)
+                print(data)
             else:
                 ack_message = " (ACK timeout)"
                 ackLost+=1
