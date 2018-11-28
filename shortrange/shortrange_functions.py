@@ -327,13 +327,15 @@ def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_d
         print("reading file " + FILE_NAME)
         stack.readFromFile(FILE_NAME, False)
 
-    led_dir.on()
+    led_a1.on()
+    print("waiting for button press to start transmission")
 
     #wait for button press
     btn.waitForPress()
     btn.waitForRelease()
 
-    led_dir.off()
+    led_a1.off()
+    print("starting transmission")
 
 
     # run this to swtich the radio on and into tx mode
