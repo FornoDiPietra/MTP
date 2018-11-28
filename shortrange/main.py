@@ -14,6 +14,7 @@ class LED(Thread):
 	def __init__(self, channel):
 		super(LED, self).__init__()
 		self.frequency = 0.9
+		self.flashTime = 0.05
 		self.GPIO_CHANNEL = channel
 		self.events = Queue.Queue()
 		self.daemon = True
@@ -57,6 +58,16 @@ class LED(Thread):
 					except Queue.Empty:
 						pass
 
+			elif (event == 'FLASH'):
+				GPIO.output(self.GPIO_CHANNEL, 1)
+				try:
+					event = self.events.get(True, 0.1)
+					self.events.put(event)
+				except Queue.Empty:
+					pass
+				GPIO.output(self.GPIO_CHANNEL, 0)
+				event = self.events.get(True)
+
 			elif (event == 'DIE'):
 				GPIO.output(self.GPIO_CHANNEL, 0)
 				break
@@ -74,6 +85,8 @@ class LED(Thread):
 			self.off()
 		if self.state == 'OFF':
 			self.on()
+	def flash(self):
+		self.events.put('FLASH')
 
 
 class Switch():
@@ -148,6 +161,9 @@ leds = [led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_dir]
 
 while True:
 
+	# this causes all LEDs to blink with 1Hz
+	# The button has to be pressed for 1s to escape 
+	# from this meta state
 	while (not BTN.isOn()):
 		for led in leds:
 			led.on()
@@ -160,16 +176,19 @@ while True:
 		time.sleep(0.5)
 	BTN.waitForRelease()
 
+	for led in leds:
+		led.off()
+
+
 	if (SW2.isOn()):
 		#network mode
 		led_net.on()
+		led_dir.off()
 
 	else:
 		#Shortrange / midrange
-		led_net.off()
-		led_a1.off()
-		led_a2.off()
-		led_dir.off()
+		# Direct
+		led_dir.on()
 
 		if (SW3.isOn()):
 			#Rx
@@ -183,7 +202,7 @@ while True:
 			led_rx.off()
 
 			fileName = waitForFile()
-			led_dir.blink()
+			led_a1.blink()
 			print("found file: " + fileName)
 			time.sleep(1)
 			TX(TX_FOLDER + fileName,"cfg1",led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_dir,BTN,SW2,SW3,compression=True)

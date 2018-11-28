@@ -92,12 +92,14 @@ def RX(config,RX_FOLDER,led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_di
 
 
     radioRx = setupRadio(CE_RX)
+    time.sleep(0.5)
     radioRx.openReadingPipe(1, ADDR_RX)
     radioRx.openReadingPipe(0, ADDR_RX)
     radioRx.startListening()
 
 
     radioTx = setupRadio(CE_TX)
+    time.sleep(0.5)
     radioTx.startListening()
     radioTx.stopListening()
     time.sleep(130 / 1000000.0)
@@ -150,7 +152,6 @@ def RX(config,RX_FOLDER,led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_di
             radioRx.flush_rx()
             radioRx.write_register(NRF24.STATUS, 0x70)
 
-            led_a1.on()
             while (data == None and not stop):
                 data = receive(radioRx, IRQ_RX, 0.5)
 
@@ -164,7 +165,6 @@ def RX(config,RX_FOLDER,led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_di
                         stop = True
 
 
-            led_a1.off()
 
             if (not stop):
                 frame = RxFrame(data)
@@ -186,15 +186,18 @@ def RX(config,RX_FOLDER,led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_di
                 transmit(radioTx,IRQ_TX,burst.getACK())
 
                 print("received burst: " + str(count) + " - " + str(burst.statsNumRcv) + "/256")
+                if (burst.statsNumRcv < 30):
+                    led_err.flash()
+
                 stack.addBurst(burst)
 
                 stats.append([count, burst.statsNumRcv])
 
+                led_rx.flash()
+
             if (stack.isCompletlyReceived() or stop):
                 if (stack.isCompletlyReceived()):
                     print("\033[92m file received!\033[0m")
-                    led_dir.on()
-                    led_a1.off()
                 else:
                     print("canceling")
 
@@ -251,8 +254,8 @@ def RX(config,RX_FOLDER,led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_di
             logFile.write(str(s[0]) + ";" + str(s[1]) + "\n")
         logFile.close()
 
-        btn.waitForPress()
-        btn.waitForRelease()
+        #btn.waitForPress()
+        #btn.waitForRelease()
 
 
 def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_dir, btn, sw2, sw3, compression=False):
@@ -330,7 +333,6 @@ def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_d
     btn.waitForPress()
     btn.waitForRelease()
 
-    led_tx.blink()
     led_dir.off()
 
 
@@ -352,7 +354,6 @@ def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_d
         while (not stack.isAllConfirmed()):
             timingStat = []
             count += 1
-            led_err.off()
 
             timer2 = time.time()
             timer3 = time.time()
@@ -391,9 +392,10 @@ def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_d
             else:
                 ack_message = " (ACK timeout)"
                 ackLost+=1
-                led_err.on()
+                led_err.flash()
 
             print(str(stack._packetCount) + " packets left" + ack_message)
+            led_tx.flash()
 
             # How long did it take to process the ACK
             timingStat.append(time.time()-timer3)
