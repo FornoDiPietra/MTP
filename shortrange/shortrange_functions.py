@@ -17,6 +17,11 @@ def setupRadio(CE):
     #POWER = NRF24.PA_MIN
     DATARATE = NRF24.BR_2MBPS
 
+    print("setup radio: CHANNEL (dec)=" + str(CHANNEL))
+    print("setup radio: POWER = " + str(POWER))
+    print("setup radio: DATARATE = " + str(DATARATE))
+
+
     radio = NRF24(GPIO, spidev.SpiDev())
     radio.begin(CE, 0)
     radio.setRetries(15,0)
@@ -66,8 +71,10 @@ def CE():
 
 def RX(config,RX_FOLDER,led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_dir, btn, sw2, sw3, FILE_NAME=""):
     # Normal configuration Raspi 2
-    ADDR_TX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
-    ADDR_RX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
+    #ADDR_TX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
+    #ADDR_RX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
+    ADDR_TX = [0xd3, 0xd3, 0xd3, 0xd3, 0xd3]
+    ADDR_RX = [0xb9, 0xb9, 0xb9, 0xb9, 0xb9]
 
 
     print("TX addr: " + str(ADDR_TX))
@@ -157,12 +164,15 @@ def RX(config,RX_FOLDER,led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_di
 
                 pressTime = time.time()
                 if (btn.isOn()):
+                    print("trying to escape Rx mode")
                     led_err.blink()
                     btn.waitForRelease()
                     led_err.off()
                     if (time.time()-pressTime > 5):
                         print("manual cancel of RX mode")
                         stop = True
+                    else:
+                        print("not escaped from Rx after " + str(time.time()-pressTime)+ "s")
 
 
 
@@ -260,13 +270,16 @@ def RX(config,RX_FOLDER,led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_di
 
 def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_dir, btn, sw2, sw3, compression=False):
     # Normal configuration Raspi 2
-    ADDR_TX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
-    ADDR_RX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
+    #ADDR_TX = [0xe7, 0xe7, 0xe7, 0xe7, 0xe7]
+    #ADDR_RX = [0xc2, 0xc2, 0xc2, 0xc2, 0xc2]
+    ADDR_TX = [0xb9, 0xb9, 0xb9, 0xb9, 0xb9]
+    ADDR_RX = [0xd3, 0xd3, 0xd3, 0xd3, 0xd3]
     ACK_TIMEOUT = 0.2
 
 
     print("TX addr: " + str(ADDR_TX))
     print("RX addr: " + str(ADDR_RX)) 
+    print("ACK_TIMEOUT: " + str(ACK_TIMEOUT))
 
     CE()  
 
@@ -404,12 +417,15 @@ def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_d
 
             pressTime = time.time()
             if (btn.isOn()):
+                print("trying to escape Tx mode")
                 led_err.blink()
                 btn.waitForRelease()
                 led_err.off()
                 if (time.time()-pressTime > 5):
                     print("manual cancel of TX mode")
                     stop = True
+                else:
+                    print("not escaped from Tx after " + str(time.time()-pressTime) + "s")
 
         if (not stack.safeIsAllConfirmed()):
             print("not safe all confirmed!!!")

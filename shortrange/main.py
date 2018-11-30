@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3 -u
 
 from shortrange_functions import *
 import os
@@ -13,7 +13,7 @@ TX_FOLDER = "/home/pi/MTP/txfile/"
 class LED(Thread):
 	def __init__(self, channel):
 		super(LED, self).__init__()
-		self.frequency = 0.9
+		self.frequency = 1
 		self.flashTime = 0.05
 		self.GPIO_CHANNEL = channel
 		self.events = queue.Queue()
@@ -141,6 +141,7 @@ def waitForFile():
 			
 		time.sleep(1)
 
+GPIO.setwarnings(False)
 
 SW2 = Switch( 6)
 SW3 = Switch(13)
@@ -181,23 +182,27 @@ while True:
 
 
 	if (SW2.isOn()):
+		print("going into network mode")
 		#network mode
 		led_net.on()
 		led_dir.off()
 
 	else:
+		print("going into direct mode")
 		#Shortrange / midrange
 		# Direct
 		led_dir.on()
 
 		if (SW3.isOn()):
 			#Rx
+			print("going into Rx mode")
 			led_tx.off()
 			led_rx.blink() #--> turned on by RX function as soon as ready
 			RX("cfg1", RX_FOLDER, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_dir,BTN,SW2,SW3)
 
 		else:
 			#Tx
+			print("going into Tx mode")
 			led_tx.on()
 			led_rx.off()
 
