@@ -5,7 +5,7 @@ import os
 import sys
 import time
 from threading import Thread, Event, Lock
-import Queue
+import queue
 
 RX_FOLDER = "/home/pi/MTP/rxfile/"
 TX_FOLDER = "/home/pi/MTP/txfile/"
@@ -16,7 +16,7 @@ class LED(Thread):
 		self.frequency = 0.9
 		self.flashTime = 0.05
 		self.GPIO_CHANNEL = channel
-		self.events = Queue.Queue()
+		self.events = queue.Queue()
 		self.daemon = True
 		self.state = 'OFF'
 		GPIO.setup(channel,  GPIO.OUT)
@@ -55,7 +55,7 @@ class LED(Thread):
 					try:
 						event = self.events.get(True, self.frequency/2.0)
 						break
-					except Queue.Empty:
+					except queue.Empty:
 						pass
 
 			elif (event == 'FLASH'):
@@ -63,7 +63,7 @@ class LED(Thread):
 				try:
 					event = self.events.get(True, 0.1)
 					self.events.put(event)
-				except Queue.Empty:
+				except queue.Empty:
 					pass
 				GPIO.output(self.GPIO_CHANNEL, 0)
 				event = self.events.get(True)

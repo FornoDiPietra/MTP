@@ -10,7 +10,7 @@ def _BV(x):
     return 1
 
 def setupRadio(CE):
-    CHANNEL = 0x70
+    CHANNEL = 0x62
     POWER = NRF24.PA_MAX
     #POWER = NRF24.PA_HIGH
     #POWER = NRF24.PA_LOW
@@ -116,10 +116,10 @@ def RX(config,RX_FOLDER,led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_di
     print("IRQ_RX=" + str(IRQ_RX))
 
     print(sys.version)
-    print("----Tx---------")
-    radioTx.printDetails()
-    print("----Rx---------")
-    radioRx.printDetails()
+    #print("----Tx---------")
+    #radioTx.printDetails()
+    #print("----Rx---------")
+    #radioRx.printDetails()
 
 
     print("init the packet stack")
@@ -161,7 +161,7 @@ def RX(config,RX_FOLDER,led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_di
                     btn.waitForRelease()
                     led_err.off()
                     if (time.time()-pressTime > 5):
-                        print("exit RX mode")
+                        print("manual cancel of RX mode")
                         stop = True
 
 
@@ -309,10 +309,10 @@ def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_d
     print("IRQ_RX=" + str(IRQ_RX))
 
     print(sys.version)
-    print("----Tx---------")
-    radioTx.printDetails()
-    print("----Rx---------")
-    radioRx.printDetails()
+    #print("----Tx---------")
+    #radioTx.printDetails()
+    #print("----Rx---------")
+    #radioRx.printDetails()
 
 
     print("init the packet stack")
@@ -345,15 +345,13 @@ def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_d
 
     count = 0
     ackLost = 0
-
     timer1 = time.time()
-
     stats = []
-
-    firstBurst = False
+    acks = []
+    stop = False
 
     try:
-        while (not stack.isAllConfirmed()):
+        while (not stack.isAllConfirmed() and not stop):
             timingStat = []
             count += 1
 
@@ -361,10 +359,6 @@ def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_d
             timer3 = time.time()
 
             burst = stack.createBurst()
-
-            if (firstBurst == False):
-                print(str(burst))
-                firstBurst = True
 
             # How long did it take to create the burst?
             timingStat.append(time.time()-timer3)   
@@ -390,13 +384,13 @@ def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_d
             ack_message = ""
             if (data != None):
                 burst.ACK(data,stack)
-                print(data)
+                acks.append(data)
             else:
                 ack_message = " (ACK timeout)"
                 ackLost+=1
                 led_err.flash()
 
-            print(str(stack._packetCount) + " packets left" + ack_message)
+            #print(str(stack._packetCount) + " packets left" + ack_message)
             led_tx.flash()
 
             # How long did it take to process the ACK
@@ -407,6 +401,15 @@ def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_d
             timingStat.append(ackLost)
 
             stats.append(timingStat)
+
+            pressTime = time.time()
+            if (btn.isOn()):
+                led_err.blink()
+                btn.waitForRelease()
+                led_err.off()
+                if (time.time()-pressTime > 5):
+                    print("manual cancel of TX mode")
+                    stop = True
 
         if (not stack.safeIsAllConfirmed()):
             print("not safe all confirmed!!!")
@@ -419,7 +422,7 @@ def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_d
         print("time elapsed: " + str(totalTime))
         print("transmitted: " + str(count))
         print("timeouts: " + str(ackLost))
-        print("saving logfile, don't cancel!")
+        print("saving logfile to " + os.path.basename(FILE_NAME) + ".timelog")
 
         logFile = open(os.path.basename(FILE_NAME) + ".timelog","w+")
 
@@ -434,5 +437,13 @@ def TX(FILE_NAME,config, led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_d
                 logFile.write(str(datum) + ";")
             logFile.write("\n")
         logFile.close()
+
+        print("saving ACKs to " + os.path.basename(FILE_NAME) + ".acks")
+        ackFile = open(os.path.basename(FILE_NAME) + ".acks","w+")
+        ackFile.write(time.asctime( time.localtime(time.time())) + "\n")
+        for ack in acks:
+            ackFile.write(str(ack) + "\n")
+        ackFile.close()
+        print("Tx finished")
 
         led_tx.on()

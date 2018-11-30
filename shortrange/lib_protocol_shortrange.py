@@ -235,7 +235,10 @@ class PacketStack:
     def _convertToArray(self, byteBlock):
         arr = []
         for b in byteBlock:
-            arr.append(ord(b))
+            if (type(b) == int):
+                arr.append(b)
+            else:
+                arr.append(ord(b))
         return arr
 
     def _fillWithPadding(self, dataBlock, blockSize):
