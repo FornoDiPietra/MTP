@@ -136,7 +136,12 @@ def waitForFile():
 	while True:
 		# find the first one smaller than 24 characters
 		for file in os.listdir(TX_FOLDER):
-			if (len(file) < 24):
+			if (os.path.isfile(TX_FOLDER + file)):
+				if (len(file)>24):
+					newFile = file[0:19] + ".txt"
+					print("mv \"" + TX_FOLDER + file + "\" \"" + TX_FOLDER + newFile + "\"")
+					os.system("mv \"" + TX_FOLDER + file + "\" \"" + TX_FOLDER + newFile + "\"")
+					file = newFile
 				return file
 			
 		time.sleep(1)
@@ -206,6 +211,8 @@ while True:
 			led_tx.on()
 			led_rx.off()
 
+			print("removing " + TX_FOLDER + "tmp.7z (just in case)")
+			os.system("rm " + TX_FOLDER + "tmp.7z")
 			fileName = waitForFile()
 			led_a1.blink()
 			print("found file: " + fileName)

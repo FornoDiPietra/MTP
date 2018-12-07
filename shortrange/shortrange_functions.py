@@ -234,7 +234,7 @@ def RX(config,RX_FOLDER,led_err, led_rx, led_tx, led_a1, led_a2, led_net, led_di
 
                 if (compression):
                     print("decompressing file")
-                    os.system("7z x -y -so " + RX_FOLDER + "tmp.7z > " + RX_FOLDER + fileName)
+                    os.system("7z x -y -so " + RX_FOLDER + tmpFileName + " > " + "\"" + RX_FOLDER + fileName + "\"")
                 print("file stored")
                 break
     except KeyboardInterrupt:
@@ -332,10 +332,8 @@ def TX(TX_FOLDER, FILE_NAME, config, led_err, led_rx, led_tx, led_a1, led_a2, le
     stack = PacketStack()
 
     if (compression):
-        print("removing old "+ TX_FOLDER + "tmp.7z (just in case)")
-        os.system("rm "+ TX_FOLDER +"tmp.7z")
         print("compressing file")
-        os.system("7z a " + TX_FOLDER + "tmp.7z" + " " + FILE_NAME)
+        os.system("7z a " + TX_FOLDER + "tmp.7z" + " \"" + FILE_NAME + "\"")
         print("reading file compressed file tmp.7z")
         stack.readFromFile(TX_FOLDER + "tmp.7z",True,FILE_NAME)
     else:
