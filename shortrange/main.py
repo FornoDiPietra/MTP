@@ -6,6 +6,7 @@ import sys
 import time
 from threading import Thread, Event, Lock
 import queue
+import network_functions
 
 RX_FOLDER = "/home/pi/MTP/rxfile/"
 TX_FOLDER = "/home/pi/MTP/txfile/"
@@ -188,9 +189,10 @@ while True:
 
 	if (SW2.isOn()):
 		print("going into network mode")
-		#network mode
 		led_net.on()
 		led_dir.off()
+		network_functions.runNetworkmode(leds,SW2,SW3,BTN)
+
 
 	else:
 		print("going into direct mode")
