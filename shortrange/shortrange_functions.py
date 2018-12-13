@@ -10,9 +10,9 @@ def _BV(x):
     return 1
 
 def setupRadio(CE):
-    CHANNEL = 0x62
-    POWER = NRF24.PA_MAX
-    #POWER = NRF24.PA_HIGH
+    CHANNEL = 0x52          # 2.482 Hz
+    #POWER = NRF24.PA_MAX
+    POWER = NRF24.PA_HIGH
     #POWER = NRF24.PA_LOW
     #POWER = NRF24.PA_MIN
     DATARATE = NRF24.BR_2MBPS
